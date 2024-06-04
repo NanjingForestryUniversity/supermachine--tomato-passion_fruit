@@ -211,7 +211,7 @@ def extract_max_connected_area(image_path, lower_hsv, upper_hsv):
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--dir_path', type=str, default=r'D:\project\Tomato\20240410RGBtest2\data',
+    parser.add_argument('--dir_path', type=str, default=r'D:\project\supermachine--tomato-passion_fruit\20240419RGBtest2\data',
                         help='the directory path of images')
     parser.add_argument('--threshold_s_l', type=int, default=180,
                         help='the threshold for s_l')

@@ -6,6 +6,7 @@ import argparse
 
 
 
+#提取西红柿，使用S+L的图像
 def extract_s_l(image_path):
     image = cv2.imread(image_path)
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -75,14 +76,10 @@ def largest_connected_component(bin_img):
     # 使用connectedComponentsWithStats函数找到连通区域
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(bin_img, connectivity=8)
 
-    # 如果只有背景标签,返回一个空的二值图像
-    if num_labels <= 1:
-        return np.zeros_like(bin_img)
-
     # 找到最大的连通区域（除了背景）
     largest_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
 
-    # 创建一个新的二值图像,只显示最大的连通区域
+    # 创建一个新的二值图像，只显示最大的连通区域
     new_bin_img = np.zeros_like(bin_img)
     new_bin_img[labels == largest_label] = 255
 
@@ -109,7 +106,7 @@ def draw_tomato_edge(original_img, bin_img):
 
     # 如果没有找到轮廓，直接返回原图
     if not contours:
-        return original_img, np.zeros_like(bin_img)  # 返回原图和全黑mask
+        return original_img
     # 找到最大轮廓
     max_contour = max(contours, key=cv2.contourArea)
     # 多边形近似的精度调整
@@ -169,9 +166,9 @@ def bitwise_and_rgb_with_binary(rgb_img, bin_img):
     return result
 
 
-def extract_max_connected_area(image, lower_hsv, upper_hsv):
+def extract_max_connected_area(image_path, lower_hsv, upper_hsv):
     # 读取图像
-    # image = cv2.imread(image_path)
+    image = cv2.imread(image_path)
 
     # 将图像从BGR转换到HSV
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -214,7 +211,7 @@ def extract_max_connected_area(image, lower_hsv, upper_hsv):
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--dir_path', type=str, default=r'D:\project\supermachine--tomato-passion_fruit\20240419RGBtest2\data',
+    parser.add_argument('--dir_path', type=str, default=r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\broken',
                         help='the directory path of images')
     parser.add_argument('--threshold_s_l', type=int, default=180,
                         help='the threshold for s_l')
@@ -234,8 +231,8 @@ def main():
             # cv2.imshow('img_fore_defect', img_fore_defect)
             thresholded_s_l = threshold_segmentation(s_l, args.threshold_s_l)
             new_bin_img = largest_connected_component(thresholded_s_l)
-            zhongggggg = cv2.bitwise_or(new_bin_img, cv2.imread('defect_mask.bmp', cv2.IMREAD_GRAYSCALE))
-            cv2.imshow('zhongggggg', zhongggggg)
+            # zhongggggg = cv2.bitwise_or(new_bin_img, cv2.imread('defect_mask.bmp', cv2.IMREAD_GRAYSCALE))
+            # cv2.imshow('zhongggggg', zhongggggg)
             new_otsu_bin_img = largest_connected_component(otsu_thresholded)
             filled_img, defect = fill_holes(new_bin_img)
             defect = bitwise_and_rgb_with_binary(cv2.imread(img_path), defect)
@@ -269,10 +266,7 @@ def main():
             print('rp', org_defect.shape)
             cv2.imshow('res', res)
 
-            # lower_hsv = np.array([19, 108, 15])
-            # upper_hsv = np.array([118, 198, 134])
-            # max_connected_area = extract_max_connected_area(img_path, lower_hsv, upper_hsv)
-            # cv2.imshow('Max Connected Area', max_connected_area)
+
 
             # 显示原始图像
             original_img = cv2.imread(img_path)
