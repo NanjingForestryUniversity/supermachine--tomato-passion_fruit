@@ -17,7 +17,7 @@ import io
 from PIL import Image
 import select
 import msvcrt
-from classifer import Tomato
+from classifer import Tomato, Passion_fruit
 
 def receive_rgb_data(pipe):
     try:
@@ -200,58 +200,152 @@ class Logger(object):
             print(content)
 
 
+def contour_process(image_array):
+    # 应用中值滤波
+    image_filtered = cv2.medianBlur(image_array, 5)
+
+    # 形态学闭操作
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+    image_closed = cv2.morphologyEx(image_filtered, cv2.MORPH_CLOSE, kernel)
+
+    # 查找轮廓
+    contours, _ = cv2.findContours(image_closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # 创建空白图像以绘制轮廓
+    image_contours = np.zeros_like(image_array)
+
+    # 进行多边形拟合并填充轮廓
+    for contour in contours:
+        epsilon = 0.001 * cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, epsilon, True)
+        if cv2.contourArea(approx) > 100:  # 仅处理较大的轮廓
+            cv2.drawContours(image_contours, [approx], -1, (255, 255, 255), -1)
+
+    return image_contours
+
+# def get_tomato_dimensions(edge_img):
+#     """
+#     根据边缘二值化轮廓图,计算果子的长径、短径和长短径比值。
+#     使用最小外接矩形和最小外接圆两种方法。
+#
+#     参数:
+#     edge_img (numpy.ndarray): 边缘二值化轮廓图,背景为黑色,番茄区域为白色。
+#
+#     返回:
+#     tuple: (长径, 短径, 长短径比值)
+#     """
+#     if edge_img is None or edge_img.any() == 0:
+#         return (0, 0)
+#     # 最小外接矩形
+#     rect = cv2.minAreaRect(cv2.findContours(edge_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0])
+#     major_axis, minor_axis = rect[1]
+#     # aspect_ratio = max(major_axis, minor_axis) / min(major_axis, minor_axis)
+#
+#     # # 最小外接圆
+#     # (x, y), radius = cv2.minEnclosingCircle(
+#     #     cv2.findContours(edge_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0])
+#     # diameter = 2 * radius
+#     # aspect_ratio_circle = 1.0
+#
+#     return (max(major_axis, minor_axis), min(major_axis, minor_axis))
+
+# def get_defect_info(defect_img):
+#     """
+#     根据区域缺陷二值化轮廓图,计算缺陷区域的个数和总面积。
+#
+#     参数:
+#     defect_img (numpy.ndarray): 番茄区域缺陷二值化轮廓图,背景为黑色,番茄区域为白色,缺陷区域为黑色连通域。
+#
+#     返回:
+#     tuple: (缺陷区域个数, 缺陷区域像素面积，缺陷像素总面积)
+#     """
+#     # 检查输入是否为空
+#     if defect_img is None or defect_img.any() == 0:
+#         return (0, 0)
+#
+#     nb_components, output, stats, centroids = cv2.connectedComponentsWithStats(defect_img, connectivity=4)
+#     max_area = max(stats[i, cv2.CC_STAT_AREA] for i in range(1, nb_components))
+#     areas = []
+#     for i in range(1, nb_components):
+#         area = stats[i, cv2.CC_STAT_AREA]
+#         if area != max_area:
+#             areas.append(area)
+#     number_defects = len(areas)
+#     total_pixels = sum(areas)
+#     return number_defects, total_pixels
+
+def analyze_ellipse(image_array):
+    # 查找白色区域的轮廓
+    _, binary_image = cv2.threshold(image_array, 127, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # 初始化变量用于存储最大轮廓的长径和短径
+    major_axis = 0
+    minor_axis = 0
+
+    # 对每个找到的轮廓，找出可以包围它的最小椭圆，并计算长径和短径
+    for contour in contours:
+        if len(contour) >= 5:  # 至少需要5个点来拟合椭圆
+            ellipse = cv2.fitEllipse(contour)
+            (center, axes, orientation) = ellipse
+            major_axis0 = max(axes)
+            minor_axis0 = min(axes)
+            # 更新最大的长径和短径
+            if major_axis0 > major_axis:
+                major_axis = major_axis0
+                minor_axis = minor_axis0
+
+    return major_axis, minor_axis
+
+# 示例用法
+# image_array = cv2.imread('path_to_your_image.bmp', cv2.IMREAD_GRAYSCALE)
+# major_axis, minor_axis = analyze_ellipse(image_array)
+# print(f"Major Axis: {major_axis}, Minor Axis: {minor_axis}")
+
+# 加载新上传的图像进行分析
+new_ellipse_image_path = '/mnt/data/未标题-2.png'
+new_ellipse_image = cv2.imread(new_ellipse_image_path, cv2.IMREAD_GRAYSCALE)
+
+# 使用上述函数进行分析
+analyze_ellipse(new_ellipse_image)
 
 
-def get_tomato_dimensions(edge_img):
-    """
-    根据边缘二值化轮廓图,计算果子的长径、短径和长短径比值。
-    使用最小外接矩形和最小外接圆两种方法。
+def analyze_defect(image_array):
+    # 查找白色区域的轮廓
+    _, binary_image = cv2.threshold(image_array, 127, 255, cv2.THRESH_BINARY)
+    contours_white, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    参数:
-    edge_img (numpy.ndarray): 边缘二值化轮廓图,背景为黑色,番茄区域为白色。
+    # 初始化统计数据
+    count_black_areas = 0
+    total_pixels_black_areas = 0
 
-    返回:
-    tuple: (长径, 短径, 长短径比值)
-    """
-    if edge_img is None or edge_img.any() == 0:
-        return (0, 0)
-    # 最小外接矩形
-    rect = cv2.minAreaRect(cv2.findContours(edge_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0])
-    major_axis, minor_axis = rect[1]
-    # aspect_ratio = max(major_axis, minor_axis) / min(major_axis, minor_axis)
+    # 对于每个白色区域，查找内部的黑色小区域
+    for contour in contours_white:
+        # 创建一个mask以查找内部的黑色区域
+        mask = np.zeros_like(image_array)
+        cv2.drawContours(mask, [contour], -1, 255, -1)
 
-    # # 最小外接圆
-    # (x, y), radius = cv2.minEnclosingCircle(
-    #     cv2.findContours(edge_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0])
-    # diameter = 2 * radius
-    # aspect_ratio_circle = 1.0
+        # 仅在白色轮廓内部查找黑色区域
+        black_areas_inside = cv2.bitwise_and(cv2.bitwise_not(image_array), mask)
 
-    return (max(major_axis, minor_axis), min(major_axis, minor_axis))
+        # 查找黑色区域的轮廓
+        contours_black, _ = cv2.findContours(black_areas_inside, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        count_black_areas += len(contours_black)
 
-def get_defect_info(defect_img):
-    """
-    根据区域缺陷二值化轮廓图,计算缺陷区域的个数和总面积。
+        # 计算黑色区域的总像素数
+        for c in contours_black:
+            total_pixels_black_areas += cv2.contourArea(c)
 
-    参数:
-    defect_img (numpy.ndarray): 番茄区域缺陷二值化轮廓图,背景为黑色,番茄区域为白色,缺陷区域为黑色连通域。
-
-    返回:
-    tuple: (缺陷区域个数, 缺陷区域像素面积，缺陷像素总面积)
-    """
-    # 检查输入是否为空
-    if defect_img is None or defect_img.any() == 0:
-        return (0, 0)
-
-    nb_components, output, stats, centroids = cv2.connectedComponentsWithStats(defect_img, connectivity=4)
-    max_area = max(stats[i, cv2.CC_STAT_AREA] for i in range(1, nb_components))
-    areas = []
-    for i in range(1, nb_components):
-        area = stats[i, cv2.CC_STAT_AREA]
-        if area != max_area:
-            areas.append(area)
-    number_defects = len(areas)
-    total_pixels = sum(areas)
+        number_defects = count_black_areas
+        total_pixels = total_pixels_black_areas
     return number_defects, total_pixels
+
+
+# 示例用法
+# image_array = cv2.imread('path_to_your_image.bmp', cv2.IMREAD_GRAYSCALE)
+# black_areas_count, total_pixels = analyze_black_areas_in_white(image_array)
+# print(f"Number of black areas: {black_areas_count}, Total pixels in black areas: {
+
 
 def analyze_tomato(img):
     """
@@ -272,9 +366,35 @@ def analyze_tomato(img):
     edge, mask = tomato.draw_tomato_edge(img, new_bin_img)
     org_defect = tomato.bitwise_and_rgb_with_binary(edge, new_bin_img)
     # 获取西红柿的尺寸信息
-    long_axis, short_axis = get_tomato_dimensions(mask)
+    long_axis, short_axis = analyze_ellipse(mask)
     # 获取缺陷信息
-    number_defects, total_pixels = get_defect_info(new_bin_img)
+    number_defects, total_pixels = analyze_defect(new_bin_img)
     # 将处理后的图像转换为 RGB 格式
     rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
+    return long_axis, short_axis, number_defects, total_pixels, rp
+
+
+def analyze_passion_fruit(img, hue_value=37, hue_delta=10, value_target=25, value_delta=10):
+    if img is None:
+        print("Error: 无图像数据.")
+        return None
+
+    # 创建PassionFruit类的实例
+    pf = Passion_fruit(hue_value=hue_value, hue_delta=hue_delta, value_target=value_target, value_delta=value_delta)
+
+    hsv_image = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    combined_mask = pf.create_mask(hsv_image)
+    combined_mask = pf.apply_morphology(combined_mask)
+    max_mask = pf.find_largest_component(combined_mask)
+
+    # if max_mask is None:
+    #     print("No significant components found.")
+    #     return None
+    contour_mask = contour_process(max_mask)
+    long_axis, short_axis = analyze_ellipse(contour_mask)
+    number_defects, total_pixels = analyze_defect(max_mask)
+    edge = pf.draw_contours_on_image(img, contour_mask)
+    org_defect = pf.bitwise_and_rgb_with_binary(edge, max_mask)
+    rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
+
     return long_axis, short_axis, number_defects, total_pixels, rp

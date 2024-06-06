@@ -18,7 +18,7 @@ import time
 import os
 from root_dir import ROOT_DIR
 import logging
-from utils import create_pipes, receive_rgb_data, send_data, receive_spec_data, analyze_tomato
+from utils import create_pipes, receive_rgb_data, send_data, receive_spec_data, analyze_tomato, analyze_passion_fruit
 from collections import deque
 import time
 import io
@@ -36,9 +36,13 @@ def process_data(img: any) -> tuple:
     :param detector: 模型
     :return: 是否处理成功
     """
-    # if cmd == 'IM':
+    if cmd == 'TO':
+        # 番茄
+        long_axis, short_axis, number_defects, total_pixels, rp = analyze_tomato(img)
+    elif cmd == 'PF':
+        # 百香果
+        long_axis, short_axis, number_defects, total_pixels, rp = analyze_passion_fruit(img)
 
-    long_axis, short_axis, number_defects, total_pixels, rp = analyze_tomato(img)
     return long_axis, short_axis, number_defects, total_pixels, rp
 
 

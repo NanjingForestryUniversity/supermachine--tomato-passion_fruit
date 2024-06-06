@@ -222,3 +222,75 @@ class Tomato:
         img_filled_inv = cv2.bitwise_not(img_filled)
         img_filled = cv2.bitwise_or(new_bin_img, img_filled_inv)
         return img_filled
+
+
+class Passion_fruit:
+    def __init__(self, hue_value=37, hue_delta=10, value_target=25, value_delta=10):
+        # 初始化常用参数
+        self.hue_value = hue_value
+        self.hue_delta = hue_delta
+        self.value_target = value_target
+        self.value_delta = value_delta
+
+    def create_mask(self, hsv_image):
+        # 创建H通道阈值掩码
+        lower_hue = np.array([self.hue_value - self.hue_delta, 0, 0])
+        upper_hue = np.array([self.hue_value + self.hue_delta, 255, 255])
+        hue_mask = cv2.inRange(hsv_image, lower_hue, upper_hue)
+
+        # 创建V通道排除中心值的掩码
+        lower_value_1 = np.array([0, 0, 0])
+        upper_value_1 = np.array([180, 255, self.value_target - self.value_delta])
+        lower_value_2 = np.array([0, 0, self.value_target + self.value_delta])
+        upper_value_2 = np.array([180, 255, 255])
+
+        value_mask_1 = cv2.inRange(hsv_image, lower_value_1, upper_value_1)
+        value_mask_1 = cv2.bitwise_not(value_mask_1)
+        value_mask_2 = cv2.inRange(hsv_image, lower_value_2, upper_value_2)
+        value_mask = cv2.bitwise_and(value_mask_1, value_mask_2)
+
+        # 合并H通道和V通道掩码
+        return cv2.bitwise_and(hue_mask, value_mask)
+
+    def apply_morphology(self, mask):
+        # 应用形态学操作
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        return cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
+    def find_largest_component(self, mask):
+        # 寻找最大连通组件
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
+        if num_labels < 2:
+            return None  # 没有找到显著的组件
+        max_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])  # 跳过背景
+        return (labels == max_label).astype(np.uint8) * 255
+    def draw_contours_on_image(self, original_image, mask_image):
+        """
+        在原图上绘制轮廓
+        :param original_image: 原图的NumPy数组
+        :param mask_image: 轮廓mask的NumPy数组
+        :return: 在原图上绘制轮廓后的图像
+        """
+        # 确保mask_image是二值图像
+        _, binary_mask = cv2.threshold(mask_image, 127, 255, cv2.THRESH_BINARY)
+
+        # 查找mask图像中的轮廓
+        contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # 在原图上绘制轮廓
+        cv2.drawContours(original_image, contours, -1, (0, 255, 0), 2)
+
+        return original_image
+
+    def bitwise_and_rgb_with_binary(self, rgb_img, bin_img):
+        '''
+        将 RGB 图像与二值图像进行按位与操作，用于将二值区域应用于原始图像。
+        :param rgb_img: 原始 RGB 图像
+        :param bin_img: 二值图像
+        :return: 按位与后的结果图像
+        '''
+        bin_img_3channel = cv2.cvtColor(bin_img, cv2.COLOR_GRAY2BGR)
+        result = cv2.bitwise_and(rgb_img, bin_img_3channel)
+        return result
+
+
