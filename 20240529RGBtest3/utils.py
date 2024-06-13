@@ -19,36 +19,85 @@ import select
 import msvcrt
 from classifer import Tomato, Passion_fruit
 
+
 def receive_rgb_data(pipe):
     try:
-        # 读取图片数据
+        # 读取图片数据长度
         len_img = win32file.ReadFile(pipe, 4, None)
         data_size = int.from_bytes(len_img[1], byteorder='big')
-        result, img_data = win32file.ReadFile(pipe, data_size, None)
-        return img_data
+        # 读取实际图片数据
+        result, data = win32file.ReadFile(pipe, data_size, None)
+        # 检查读取操作是否成功
+        if result != 0:
+            print(f"读取失败，错误代码: {result}")
+            return None
+        # 返回成功读取的数据
+        return data
     except Exception as e:
         print(f"数据接收失败，错误原因: {e}")
         return None
 
-
 def receive_spec_data(pipe):
     try:
-        # 读取图片数据长度
+        # 读取光谱数据长度
         len_spec = win32file.ReadFile(pipe, 4, None)
-        if len_spec is None:
-            # 未能读取到数据长度,返回"0"
-            return "0"
         data_size = int.from_bytes(len_spec[1], byteorder='big')
-        if data_size == 0:
-            # 接收到空数据,返回"0"
-            return "0"
-
-        # 读取图片数据
+        # 读取光谱数据
         result, spec_data = win32file.ReadFile(pipe, data_size, None)
+        # 检查读取操作是否成功
+        if result != 0:
+            print(f"读取失败，错误代码: {result}")
+            return None
+        # 返回成功读取的数据
         return spec_data
     except Exception as e:
         print(f"数据接收失败，错误原因: {e}")
-        return '0'
+        return None
+
+def parse_protocol(data: bytes) -> (str, any):
+    """
+    指令转换.
+
+    :param data:接收到的报文
+    :return: 指令类型和内容
+    """
+    try:
+        assert len(data) > 2
+    except AssertionError:
+        logging.error('指令转换失败，长度不足3')
+        return '', None
+    cmd, data = data[:2], data[2:]
+    cmd = cmd.decode('ascii').strip().upper()
+    if cmd == 'TO':
+        n_rows, n_cols, img = data[:2], data[2:4], data[4:]
+        try:
+            n_rows, n_cols = [int.from_bytes(x, byteorder='big') for x in [n_rows, n_cols]]
+        except Exception as e:
+            logging.error(f'长宽转换失败, 错误代码{e}, 报文大小: n_rows:{n_rows}, n_cols: {n_cols}')
+            return '', None
+        try:
+            assert n_rows * n_cols * 3 == len(img)
+            # 因为是float32类型 所以长度要乘12 ，如果是uint8则乘3
+        except AssertionError:
+            logging.error('图像指令IM转换失败，数据长度错误')
+            return '', None
+        img = np.frombuffer(img, dtype=np.uint8).reshape((n_rows, n_cols, -1))
+        return cmd, img
+    elif cmd == 'PF':
+        n_rows, n_cols, n_bands, spec = data[:2], data[2:4], data[4:6], data[6:]
+        try:
+            n_rows, n_cols, n_bands = [int.from_bytes(x, byteorder='big') for x in [n_rows, n_cols, n_bands]]
+        except Exception as e:
+            logging.error(f'长宽转换失败, 错误代码{e}, 报文大小: n_rows:{n_rows}, n_cols: {n_cols}, n_bands: {n_bands}')
+            return '', None
+        try:
+            assert n_rows * n_cols * n_bands * 4 == len(spec)
+
+        except AssertionError:
+            logging.error('图像指令转换失败，数据长度错误')
+            return '', None
+        spec = np.frombuffer(spec, dtype=np.uint16).reshape(n_cols, n_rows, -1)
+        return cmd, spec
 
 def create_pipes(rgb_receive_name, rgb_send_name, spec_receive_name):
     while True:
