@@ -84,6 +84,6 @@ def process_images_in_folder(input_folder, output_folder):
 
 
 # 主函数调用
-input_folder = r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\passion_fruit_img'  # 替换为你的输入文件夹路径
-output_folder = r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\01'  # 替换为你的输出文件夹路径
+input_folder = '/Users/xs/PycharmProjects/super-tomato/baixiangguo/rgb效果/test'  # 替换为你的输入文件夹路径
+output_folder = '/Users/xs/PycharmProjects/super-tomato/baixiangguo/rgb效果/testfore'  # 替换为你的输出文件夹路径
 process_images_in_folder(input_folder, output_folder)

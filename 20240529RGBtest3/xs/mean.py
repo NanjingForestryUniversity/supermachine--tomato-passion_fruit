@@ -15,7 +15,7 @@ def train_model(X, y):
     rf.fit(X, y)
     return rf
 
-def split_data(X, y, test_size=0.20, random_state=42):
+def split_data(X, y, test_size=0.20, random_state=4):
     """Split data into training and test sets."""
     return train_test_split(X, y, test_size=test_size, random_state=random_state)
 

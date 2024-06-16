@@ -3,126 +3,107 @@
 # @Author  : TG
 # @File    : main.py
 # @Software: PyCharm
-# -*- coding: utf-8 -*-
-# @Time    : 2024/4/12 15:04
-# @Author  : TG
-# @File    : main.py
-# @Software: PyCharm
 
-import socket
 import sys
-import numpy as np
-import cv2
-import root_dir
-import time
 import os
 from root_dir import ROOT_DIR
+from classifer import Spec_predict, Data_processing
 import logging
-from utils import parse_protocol, create_pipes, receive_rgb_data, send_data, receive_spec_data, analyze_tomato, analyze_passion_fruit
-from collections import deque
-import time
-import io
-from PIL import Image
-import threading
-import queue
+from utils import Pipe
+import numpy as np
 
-def process_data(cmd: str, img: any) -> tuple:
+pipe = Pipe()
+dp = Data_processing()
+rgb_receive_name = r'\\.\pipe\rgb_receive'
+rgb_send_name = r'\\.\pipe\rgb_send'
+spec_receive_name = r'\\.\pipe\spec_receive'
+rgb_receive, rgb_send, spec_receive = pipe.create_pipes(rgb_receive_name, rgb_send_name, spec_receive_name)
+
+def process_data(cmd: str, images: list, spec: any, detector: Spec_predict) -> bool:
     """
     处理指令
 
     :param cmd: 指令类型
-    :param data: 指令内容
-    :param connected_sock: socket
+    :param images: 图像数据列表
+    :param spec: 光谱数据
     :param detector: 模型
     :return: 是否处理成功
     """
+    diameter_axis_list = []
+    max_defect_num = 0  # 初始化最大缺陷数量为0
+    max_total_defect_area = 0  # 初始化最大总像素数为0
+
+    for i, img in enumerate(images):
+        if cmd == 'TO':
+            # 番茄
+            diameter, green_percentage, number_defects, total_pixels, rp = dp.analyze_tomato(img)
+            if i <= 2:
+                diameter_axis_list.append(diameter)
+                max_defect_num = max(max_defect_num, number_defects)
+                max_total_defect_area = max(max_total_defect_area, total_pixels)
+            if i == 1:
+                rp_result = rp
+                gp = green_percentage
+
+        elif cmd == 'PF':
+            # 百香果
+            diameter, weigth, number_defects, total_pixels, rp = dp.analyze_passion_fruit(img)
+            if i <= 2:
+                diameter_axis_list.append(diameter)
+                max_defect_num = max(max_defect_num, number_defects)
+                max_total_defect_area = max(max_total_defect_area, total_pixels)
+            if i == 1:
+                rp_result = rp
+                weigth = weigth
+
+        else:
+            logging.error(f'错误指令，指令为{cmd}')
+            return False
+
+    diameter = round(sum(diameter_axis_list) / 3)
+
     if cmd == 'TO':
-        # 番茄
-        long_axis, short_axis, number_defects, total_pixels, rp = analyze_tomato(img)
+        response = pipe.send_data(cmd=cmd, diameter=diameter, green_percentage=gp,
+                                  defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
     elif cmd == 'PF':
-        # 百香果
-        long_axis, short_axis, number_defects, total_pixels, rp = analyze_passion_fruit(img)
+        brix = detector.predict(spec)
+        response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, weigth=weigth,
+                                  defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
+    return response
 
-    return long_axis, short_axis, number_defects, total_pixels, rp
-
-
-## 20240423代码
 def main(is_debug=False):
     file_handler = logging.FileHandler(os.path.join(ROOT_DIR, 'report.log'))
     file_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)
-    logging.basicConfig(format='%(asctime)s %(filename)s[line:%(lineno)d] - %(levelname)s - %(message)s',
+    logging.basicConfig(format='%(asctime)s %(filename)s[line:%(lineno)d] - %(levellevel)s - %(message)s',
                         handlers=[file_handler, console_handler],
                         level=logging.DEBUG)
-    rgb_receive_name = r'\\.\pipe\rgb_receive'
-    rgb_send_name = r'\\.\pipe\rgb_send'
-    spec_receive_name = r'\\.\pipe\spec_receive'
-    rgb_receive, rgb_send, spec_receive = create_pipes(rgb_receive_name, rgb_send_name, spec_receive_name)
-
-    # data_size = 15040566
+    detector = Spec_predict(ROOT_DIR/'20240529RGBtest3'/'models'/'passion_fruit.joblib')
 
     while True:
-        long_axis_list = []
-        short_axis_list = []
-        max_defect_num = 0  # 初始化最大缺陷数量为0
-        max_total_defect_area = 0  # 初始化最大总像素数为0
-        rp = None
+        images = []
+        cmd = None
 
-        # start_time = time.time()
+        for _ in range(5):
+            data = pipe.receive_rgb_data(rgb_receive)
+            cmd, img = pipe.parse_img(data)
+            images.append(img)
 
-        for i in range(5):
+        if cmd not in ['TO', 'PF']:
+            logging.error(f'错误指令，指令为{cmd}')
+            continue
 
-            # start_time = time.time()
+        spec = None
+        if cmd == 'PF':
+            spec_data = pipe.receive_spec_data(spec_receive)
+            _, spec = pipe.parse_spec(spec_data)
 
-            data = receive_rgb_data(rgb_receive)
-            cmd, img = parse_protocol(data)
-            # print(img.shape)
-            # end_time = time.time()
-            # elapsed_time = end_time - start_time
-            # print(f'接收时间：{elapsed_time}秒')
-
-            long_axis, short_axis, number_defects, total_pixels, rp = process_data(cmd=cmd, img=img)
-            # print(long_axis, short_axis, number_defects, type(total_pixels), rp.shape)
-
-            if i <= 2:
-                long_axis_list.append(long_axis)
-                short_axis_list.append(short_axis)
-                # 更新最大缺陷数量和最大总像素数
-                max_defect_num = max(max_defect_num, number_defects)
-                max_total_defect_area = max(max_total_defect_area, total_pixels)
-            if i == 1:
-                rp_result = rp
-
-            long_axis = round(sum(long_axis_list) / 3)
-            short_axis = round(sum(short_axis_list) / 3)
-        # print(type(long_axis), type(short_axis), type(defect_num_sum), type(total_defect_area_sum), type(rp_result))
-
-        spec_data = receive_spec_data(spec_receive)
-        cmd, spec_data = parse_protocol(spec_data)
-
-        # print(f'光谱数据接收长度：', len(spec_data))
-
-
-        response = send_data(pipe_send=rgb_send, long_axis=long_axis, short_axis=short_axis,
-                             defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
-
-
-
-        # end_time = time.time()
-        # elapsed_time = (end_time - start_time) * 1000
-        # print(f'总时间：{elapsed_time}毫秒')
-        #
-        # print(long_axis, short_axis, defect_num_sum, total_defect_area_sum, rp_result.shape)
-
-
+        response = process_data(cmd, images, spec, detector)
+        if response:
+            logging.info(f'处理成功，响应为: {response}')
+        else:
+            logging.error('处理失败')
 
 if __name__ == '__main__':
-    # 2个pipe管道
-    # 接收到图片 n_rows * n_cols * 3， uint8
-    # 发送long_axis, short_axis, defect_num_sum, total_defect_area_sum, rp_result
     main(is_debug=False)
-
-
-
-

@@ -6,14 +6,15 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from spec_read import all_spectral_data
+import joblib
 
 def prepare_data(data):
     """Reshape data and select specified spectral bands."""
     reshaped_data = data.reshape(100, -1)
-    selected_bands = [1, 2, 3, 58, 59, 60, 106, 107, 108, 112, 113, 114, 142, 146, 200, 201, 202]
+    selected_bands = [8, 9, 10, 48, 49, 50, 77, 80, 103, 108, 115, 143, 145]
     return reshaped_data[:, selected_bands]
 
-def split_data(X, y, test_size=0.20, random_state=1):
+def split_data(X, y, test_size=0.20, random_state=12):
     """Split data into training and test sets."""
     return train_test_split(X, y, test_size=test_size, random_state=random_state)
 
@@ -49,11 +50,13 @@ def main():
         "RandomForest": RandomForestRegressor(n_estimators=100),
         "GradientBoosting": GradientBoostingRegressor(n_estimators=100),
         "SVR": SVR(kernel='rbf', C=100, gamma=0.1, epsilon=.1),
-        "KNeighbors": KNeighborsRegressor(n_neighbors=5)
     }
 
     for model_name, model in models.items():
         model.fit(X_train, y_train)
+        if model_name == "RandomForest":
+            joblib.dump(model, '../models/random_forest_model_2.joblib')
+
         mse, y_pred = evaluate_model(model, X_test, y_test)
         print(f"Model: {model_name}")
         print(f"Mean Squared Error on the test set: {mse}")
