@@ -51,7 +51,7 @@ def read_spectral_data(hdr_path, raw_path):
 
 
 # Specify the directory containing the HDR and RAW files
-directory = '/Users/xs/PycharmProjects/super-tomato/baixiangguo/光谱数据3030/'
+directory = r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\xs\光谱数据3030'
 
 # Initialize a list to hold all the spectral data arrays
 all_spectral_data = []

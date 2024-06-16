@@ -299,37 +299,27 @@ class Passion_fruit:
         return result
 
 class Spec_predict(object):
-    def __init__(self, load_from=None, debug_mode=False, class_weight=None):
-        if load_from is None:
-            self.model = RandomForestRegressor(n_estimators=100)
-        else:
-            self.load(load_from)
-        self.log = utils.Logger(is_to_file=debug_mode)
+    def __init__(self, load_from=None, debug_mode=False):
         self.debug_mode = debug_mode
+        self.log = utils.Logger(is_to_file=debug_mode)
+        if load_from is not None:
+            self.load(load_from)
+        else:
+            self.model = RandomForestRegressor(n_estimators=100)
 
-    def load(self, path=None):
-        if path is None:
-            path = os.path.join(ROOT_DIR, 'models')
-            model_files = os.listdir(path)
-            if len(model_files) == 0:
-                self.log.log("No model found!")
-                return 1
-            self.log.log("./ Models Found:")
-            _ = [self.log.log("├--" + str(model_file)) for model_file in model_files]
-            file_times = [model_file[6:-2] for model_file in model_files]
-            latest_model = model_files[int(np.argmax(file_times))]
-            self.log.log("└--Using the latest model: " + str(latest_model))
-            path = os.path.join(ROOT_DIR, "models", str(latest_model))
+    def load(self, path):
         if not os.path.isabs(path):
-            logging.warning('给的是相对路径')
-            return -1
+            self.log.log('Path is relative, converting to absolute path.')
+            path = os.path.abspath(path)
+
         if not os.path.exists(path):
-            logging.warning('文件不存在')
-            return -1
+            self.log.log(f'Model file not found at path: {path}')
+            raise FileNotFoundError(f'Model file not found at path: {path}')
+
         with open(path, 'rb') as f:
             model_dic = joblib.load(f)
-        self.model = model_dic['model']
-        return 0
+            self.model = model_dic
+            self.log.log(f'Model loaded successfully from {path}')
 
     def predict(self, data_x):
         '''
@@ -337,9 +327,12 @@ class Spec_predict(object):
         :param data_x: 波段选择后的数据
         :return: 预测结果二值化后的数据，0为背景，1为黄芪,2为杂质2，3为杂质1，4为甘草片，5为红芪
         '''
+        data_x = data_x.reshape(1, -1)
+        selected_bands = [8, 9, 10, 48, 49, 50, 77, 80, 103, 108, 115, 143, 145]
+        data_x = data_x[:, selected_bands]
         data_y = self.model.predict(data_x)
-
         return data_y
+
 
 # def get_tomato_dimensions(edge_img):
 #     """
@@ -484,10 +477,10 @@ class Data_processing:
         float: 估算的西红柿体积
         """
         density = 0.652228972
-        a = long_axis / 2
-        b = short_axis /2
+        a = ((long_axis / 535) * 6.3) / 2
+        b = ((short_axis /535) * 6.3) / 2
         volume = 4 / 3 * np.pi * a * b * b
-        weigth = volume * density
+        weigth = round(volume * density)
         return weigth
     def analyze_tomato(self, img):
         """
@@ -522,7 +515,7 @@ class Data_processing:
         number_defects, total_pixels = self.analyze_defect(new_bin_img)
         # 将处理后的图像转换为 RGB 格式
         rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
-        diameter =  (long_axis + short_axis) / 2
+        diameter = (long_axis + short_axis) / 2
         return diameter, green_percentage, number_defects, total_pixels, rp
 
     def analyze_passion_fruit(self, img, hue_value=37, hue_delta=10, value_target=25, value_delta=10):
@@ -537,7 +530,6 @@ class Data_processing:
         combined_mask = pf.create_mask(hsv_image)
         combined_mask = pf.apply_morphology(combined_mask)
         max_mask = pf.find_largest_component(combined_mask)
-
         contour_mask = self.contour_process(max_mask)
         long_axis, short_axis = self.analyze_ellipse(contour_mask)
         weigth = self.weight_estimates(long_axis, short_axis)

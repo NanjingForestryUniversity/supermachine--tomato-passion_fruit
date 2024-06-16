@@ -13,6 +13,9 @@ import win32file
 import struct
 from PIL import Image
 import io
+import numpy as np
+import cv2
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -69,12 +72,22 @@ class MainWindow(QMainWindow):
         spec_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.raw')][:1]
 
         for image_path in rgb_files:
-            with open(image_path, 'rb') as f:
-                img_data = f.read()
+            img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+            img = np.asarray(img, dtype=np.uint8)
+
 
             try:
-                win32file.WriteFile(self.rgb_send, len(img_data).to_bytes(4, byteorder='big'))
-                win32file.WriteFile(self.rgb_send, img_data)
+                # win32file.WriteFile(self.rgb_send, len(img_data).to_bytes(4, byteorder='big'))
+                height = img.shape[0]
+                width = img.shape[1]
+                height = height.to_bytes(2, byteorder='big')
+                width = width.to_bytes(2, byteorder='big')
+                img_data = img.tobytes()
+                length = (len(img_data) + 6).to_bytes(4, byteorder='big')
+                cmd = 'PF'
+                data_send = length + cmd.upper().encode('ascii') + height + width + img_data
+                win32file.WriteFile(self.rgb_send, data_send)
+                print(f'发送的图像数据长度: {len(data_send)}')
             except Exception as e:
                 print(f"数据发送失败. 错误原因: {e}")
 
@@ -84,10 +97,20 @@ class MainWindow(QMainWindow):
                 spec_data = f.read()
 
             try:
-                win32file.WriteFile(self.spec_send, len(spec_data).to_bytes(4, byteorder='big'))
-                print(f"发送的光谱数据长度: {len(spec_data)}")
-                win32file.WriteFile(self.spec_send, spec_data)
-                print(f'发送的光谱数据长度: {len(spec_data)}')
+                # win32file.WriteFile(self.spec_send, len(spec_data).to_bytes(4, byteorder='big'))
+                # print(f"发送的光谱数据长度: {len(spec_data)}")
+                heigth = 30
+                weight = 30
+                bands = 224
+                heigth = heigth.to_bytes(2, byteorder='big')
+                weight = weight.to_bytes(2, byteorder='big')
+                bands = bands.to_bytes(2, byteorder='big')
+                length = (len(spec_data)+8).to_bytes(4, byteorder='big')
+                cmd = 'PF'
+                data_send = length + cmd.upper().encode('ascii') + heigth + weight + bands + spec_data
+                win32file.WriteFile(self.spec_send, data_send)
+                print(f'发送的光谱数据长度: {len(data_send)}')
+                print(f'spec长度: {len(spec_data)}')
             except Exception as e:
                 print(f"数据发送失败. 错误原因: {e}")
 
@@ -96,17 +119,30 @@ class MainWindow(QMainWindow):
     def receive_result(self):
         try:
             # 读取结果数据
-            long_axis = int.from_bytes(win32file.ReadFile(self.rgb_receive, 2)[1], byteorder='big')
-            short_axis = int.from_bytes(win32file.ReadFile(self.rgb_receive, 2)[1], byteorder='big')
-            defect_num = int.from_bytes(win32file.ReadFile(self.rgb_receive, 2)[1], byteorder='big')
-            total_defect_area = int.from_bytes(win32file.ReadFile(self.rgb_receive, 4)[1], byteorder='big')
-            len_img = int.from_bytes(win32file.ReadFile(self.rgb_receive, 4)[1], byteorder='big')
-            img_data = win32file.ReadFile(self.rgb_receive, len_img)[1]
+            # 读取4字节的数据长度信息，并将其转换为整数
+            data_length = int.from_bytes(win32file.ReadFile(self.rgb_receive, 4)[1], byteorder='big')
+            print(f"应该接收到的数据长度: {data_length}")
+            # 根据读取到的数据长度，读取对应长度的数据
+            data = win32file.ReadFile(self.rgb_receive, data_length)[1]
+            print(f"接收到的数据长度: {len(data)}")
+            # 解析数据
+            cmd_result = data[:2].decode('ascii').strip().upper()
+            brix = int.from_bytes(data[2:4], byteorder='big')
+            green_percentage = int.from_bytes(data[4:5], byteorder='big')
+            diameter = int.from_bytes(data[5:7], byteorder='big')
+            weight = int.from_bytes(data[7:8], byteorder='big')
+            defect_num = int.from_bytes(data[8:10], byteorder='big')
+            total_defect_area = int.from_bytes(data[10:14], byteorder='big')
+            heigth = int.from_bytes(data[14:16], byteorder='big')
+            width = int.from_bytes(data[16:18], byteorder='big')
+            rp = data[18:]
+            print(heigth, width)
+            img = np.frombuffer(rp, dtype=np.uint8).reshape(heigth, width, -1)
+            print(f"接收到的结果数据: {cmd_result}, {brix}, {green_percentage}, {diameter}, {weight}, {defect_num}, {total_defect_area}, {img.shape}")
 
-            print(f"长径: {long_axis}, 短径: {short_axis}, 缺陷个数: {defect_num}, 缺陷面积: {total_defect_area}")
 
             # 显示结果图像
-            image = Image.open(io.BytesIO(img_data))
+            image = Image.fromarray(img)
             qimage = QImage(image.tobytes(), image.size[0], image.size[1], QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(qimage)
             self.image_label.setPixmap(pixmap)
@@ -122,6 +158,13 @@ class MainWindow(QMainWindow):
             self.send_image_group(selected_directory)
 
 if __name__ == "__main__":
+    '''
+    1. 创建Qt应用程序
+    2. 创建主窗口
+    3. 显示主窗口
+    4. 打开文件对话框
+    5. 进入Qt事件循环
+    '''
     app = QApplication(sys.argv)
     main_window = MainWindow()
     main_window.show()

@@ -67,13 +67,13 @@ class Pipe:
                 time.sleep(5)
                 continue
 
-    def receive_rgb_data(self):
+    def receive_rgb_data(self, rgb_receive):
         try:
             # 读取图片数据长度
-            len_img = win32file.ReadFile(self.rgb_receive, 4, None)
+            len_img = win32file.ReadFile(rgb_receive, 4, None)
             data_size = int.from_bytes(len_img[1], byteorder='big')
             # 读取实际图片数据
-            result, data = win32file.ReadFile(self.rgb_receive, data_size, None)
+            result, data = win32file.ReadFile(rgb_receive, data_size, None)
             # 检查读取操作是否成功
             if result != 0:
                 print(f"读取失败，错误代码: {result}")
@@ -84,13 +84,13 @@ class Pipe:
             print(f"数据接收失败，错误原因: {e}")
             return None
 
-    def receive_spec_data(self):
+    def receive_spec_data(self, spec_receive):
         try:
             # 读取光谱数据长度
-            len_spec = win32file.ReadFile(self.spec_receive, 4, None)
+            len_spec = win32file.ReadFile(spec_receive, 4, None)
             data_size = int.from_bytes(len_spec[1], byteorder='big')
             # 读取光谱数据
-            result, spec_data = win32file.ReadFile(self.spec_receive, data_size, None)
+            result, spec_data = win32file.ReadFile(spec_receive, data_size, None)
             # 检查读取操作是否成功
             if result != 0:
                 print(f"读取失败，错误代码: {result}")
@@ -128,7 +128,7 @@ class Pipe:
         except AssertionError:
             logging.error('图像指令IM转换失败，数据长度错误')
             return '', None
-        img = np.frombuffer(img, dtype=np.uint8).reshape((n_rows, n_cols, -1))
+        img = np.frombuffer(img, dtype=np.uint8).reshape(n_rows, n_cols, -1)
         return cmd, img
 
     def parse_spec(self, data: bytes) -> (str, any):
@@ -153,12 +153,12 @@ class Pipe:
             logging.error(f'长宽转换失败, 错误代码{e}, 报文大小: n_rows:{n_rows}, n_cols:{n_cols}, n_bands:{n_bands}')
             return '', None
         try:
-            assert n_rows * n_cols * n_bands * 4 == len(spec)
+            assert n_rows * n_cols * n_bands * 2 == len(spec)
 
         except AssertionError:
             logging.error('图像指令转换失败，数据长度错误')
             return '', None
-        spec = spec.reshape((n_rows, n_bands, -1)).transpose(0, 2, 1)
+        spec = np.frombuffer(spec, dtype=np.uint16).reshape((n_rows, n_bands, -1)).transpose(0, 2, 1)
         return cmd, spec
 
     def send_data(self,cmd:str, brix, green_percentage, weigth, diameter, defect_num, total_defect_area, rp):
@@ -193,17 +193,17 @@ class Pipe:
         diameter = diameter.to_bytes(2, byteorder='big')
         defect_num = defect_num.to_bytes(2, byteorder='big')
         total_defect_area = int(total_defect_area).to_bytes(4, byteorder='big')
-        length = len(img_bytes) + 15
+        length = len(img_bytes) + 18
         length = length.to_bytes(4, byteorder='big')
         if cmd == 'TO':
             brix = 0
-            brix = brix.to_bytes(1, byteorder='big')
+            brix = brix.to_bytes(2, byteorder='big')
             gp = green_percentage.to_bytes(1, byteorder='big')
             weigth = 0
             weigth = weigth.to_bytes(1, byteorder='big')
             send_message = length + cmd_re + brix + gp + diameter + weigth + defect_num + total_defect_area + height + width + img_bytes
         elif cmd == 'PF':
-            brix = brix.to_bytes(1, byteorder='big')
+            brix = int(brix.item() * 1000).to_bytes(2, byteorder='big')
             gp = 0
             gp = gp.to_bytes(1, byteorder='big')
             weigth = weigth.to_bytes(1, byteorder='big')
@@ -212,6 +212,7 @@ class Pipe:
             win32file.WriteFile(self.rgb_send, send_message)
             time.sleep(0.01)
             print('发送成功')
+            print(len(send_message), len(img_bytes))
             # print(len(send_message))
         except Exception as e:
             logging.error(f'发送完成指令失败，错误类型：{e}')

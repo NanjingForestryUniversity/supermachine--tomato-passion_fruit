@@ -44,7 +44,7 @@ def process_data(cmd: str, images: list, spec: any, detector: Spec_predict) -> b
                 max_total_defect_area = max(max_total_defect_area, total_pixels)
             if i == 1:
                 rp_result = rp
-                gp = green_percentage
+                gp = round(green_percentage)
 
         elif cmd == 'PF':
             # 百香果
@@ -64,23 +64,27 @@ def process_data(cmd: str, images: list, spec: any, detector: Spec_predict) -> b
     diameter = round(sum(diameter_axis_list) / 3)
 
     if cmd == 'TO':
-        response = pipe.send_data(cmd=cmd, diameter=diameter, green_percentage=gp,
+        brix = 0
+        weigth = 0
+        response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, green_percentage=gp, weigth=weigth,
                                   defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
+        return response
     elif cmd == 'PF':
+        green_percentage = 0
         brix = detector.predict(spec)
-        response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, weigth=weigth,
+        response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=green_percentage, diameter=diameter, weigth=weigth,
                                   defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
-    return response
+        return response
 
 def main(is_debug=False):
     file_handler = logging.FileHandler(os.path.join(ROOT_DIR, 'tomato.log'))
     file_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)
-    logging.basicConfig(format='%(asctime)s %(filename)s[line:%(lineno)d] - %(levellevel)s - %(message)s',
+    logging.basicConfig(format='%(asctime)s %(filename)s[line:%(lineno)d] - %(levelname)s - %(message)s',
                         handlers=[file_handler, console_handler],
                         level=logging.DEBUG)
-    detector = Spec_predict(ROOT_DIR/'20240529RGBtest3'/'models'/'passion_fruit.joblib')
+    detector = Spec_predict(ROOT_DIR/'models'/'passion_fruit_2.joblib')
 
     while True:
         images = []
@@ -89,7 +93,13 @@ def main(is_debug=False):
         for _ in range(5):
             data = pipe.receive_rgb_data(rgb_receive)
             cmd, img = pipe.parse_img(data)
+
+            # print(cmd, img.shape)
+
             images.append(img)
+
+            # print(len(images))
+
 
         if cmd not in ['TO', 'PF']:
             logging.error(f'错误指令，指令为{cmd}')
@@ -99,6 +109,7 @@ def main(is_debug=False):
         if cmd == 'PF':
             spec_data = pipe.receive_spec_data(spec_receive)
             _, spec = pipe.parse_spec(spec_data)
+            # print(spec.shape)
 
         response = process_data(cmd, images, spec, detector)
         if response:

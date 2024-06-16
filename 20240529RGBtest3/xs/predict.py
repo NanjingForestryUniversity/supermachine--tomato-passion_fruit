@@ -60,10 +60,10 @@ def predict(model, data):
 
 def main():
     # 加载模型
-    model = load_model('../models/random_forest_model_2.joblib')
+    model = load_model(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\models\passion_fruit.joblib')
 
     # 读取数据
-    directory = '/Users/xs/PycharmProjects/super-tomato/baixiangguo/光谱数据3030/'
+    directory = r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\xs\光谱数据3030'
     all_spectral_data = []
     for i in range(1, 101):
         hdr_path = os.path.join(directory, f'{i}.HDR')
@@ -71,9 +71,11 @@ def main():
         spectral_data = read_spectral_data(hdr_path, raw_path)
         all_spectral_data.append(spectral_data)
     all_spectral_data = np.stack(all_spectral_data)
+    print(all_spectral_data.shape)
 
     # 预处理数据
     data_prepared = prepare_data(all_spectral_data)
+    print(data_prepared.shape)
 
     # 预测数据
     predictions = predict(model, data_prepared)

@@ -55,7 +55,7 @@ def main():
     for model_name, model in models.items():
         model.fit(X_train, y_train)
         if model_name == "RandomForest":
-            joblib.dump(model, '../models/random_forest_model_2.joblib')
+            joblib.dump(model, r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\models\passion_fruit_2.joblib')
 
         mse, y_pred = evaluate_model(model, X_test, y_test)
         print(f"Model: {model_name}")
