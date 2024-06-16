@@ -12,11 +12,12 @@ import logging
 from utils import Pipe
 import numpy as np
 
-pipe = Pipe()
-dp = Data_processing()
+
 rgb_receive_name = r'\\.\pipe\rgb_receive'
 rgb_send_name = r'\\.\pipe\rgb_send'
 spec_receive_name = r'\\.\pipe\spec_receive'
+pipe = Pipe(rgb_receive_name, rgb_send_name, spec_receive_name)
+dp = Data_processing()
 rgb_receive, rgb_send, spec_receive = pipe.create_pipes(rgb_receive_name, rgb_send_name, spec_receive_name)
 
 def process_data(cmd: str, images: list, spec: any, detector: Spec_predict) -> bool:
@@ -72,7 +73,7 @@ def process_data(cmd: str, images: list, spec: any, detector: Spec_predict) -> b
     return response
 
 def main(is_debug=False):
-    file_handler = logging.FileHandler(os.path.join(ROOT_DIR, 'report.log'))
+    file_handler = logging.FileHandler(os.path.join(ROOT_DIR, 'tomato.log'))
     file_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)

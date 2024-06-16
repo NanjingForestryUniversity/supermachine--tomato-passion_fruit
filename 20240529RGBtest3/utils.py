@@ -4,20 +4,11 @@
 # @File    : utils.py
 # @Software: PyCharm
 
-import time
-import logging
-import numpy as np
+
 import shutil
-import cv2
+
 import os
-from scipy.ndimage.measurements import label, find_objects
-import win32pipe
-import win32file
-import io
-from PIL import Image
-import select
-import msvcrt
-from classifer import Tomato, Passion_fruit
+
 
 
 import win32file
@@ -37,24 +28,24 @@ class Pipe:
         self.rgb_send = None
         self.spec_receive = None
 
-    def create_pipes(self):
+    def create_pipes(self, rgb_receive_name, rgb_send_name, spec_receive_name):
         while True:
             try:
                 # 打开或创建命名管道
                 self.rgb_receive = win32pipe.CreateNamedPipe(
-                    self.rgb_receive_name,
+                    rgb_receive_name,
                     win32pipe.PIPE_ACCESS_INBOUND,
                     win32pipe.PIPE_TYPE_BYTE | win32pipe.PIPE_WAIT,
                     1, 80000000, 80000000, 0, None
                 )
                 self.rgb_send = win32pipe.CreateNamedPipe(
-                    self.rgb_send_name,
+                    rgb_send_name,
                     win32pipe.PIPE_ACCESS_OUTBOUND,  # 修改为输出模式
                     win32pipe.PIPE_TYPE_BYTE | win32pipe.PIPE_WAIT,
                     1, 80000000, 80000000, 0, None
                 )
                 self.spec_receive = win32pipe.CreateNamedPipe(
-                    self.spec_receive_name,
+                    spec_receive_name,
                     win32pipe.PIPE_ACCESS_INBOUND,
                     win32pipe.PIPE_TYPE_BYTE | win32pipe.PIPE_WAIT,
                     1, 200000000, 200000000, 0, None
