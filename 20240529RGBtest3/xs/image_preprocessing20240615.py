@@ -211,7 +211,7 @@ def extract_max_connected_area(image_path, lower_hsv, upper_hsv):
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--dir_path', type=str, default=r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\broken',
+    parser.add_argument('--dir_path', type=str, default=r'D:\project\supermachine--tomato-passion_fruit\20240419RGBtest2\data',
                         help='the directory path of images')
     parser.add_argument('--threshold_s_l', type=int, default=180,
                         help='the threshold for s_l')
@@ -227,8 +227,9 @@ def main():
             otsu_thresholded = otsu_threshold(s_l)
             img_fore = bitwise_and_rgb_with_binary(cv2.imread(img_path), otsu_thresholded)
             img_fore_defect = extract_g_r(img_fore)
+            cv2.imshow('img_fore_defect1', img_fore_defect)
             img_fore_defect = threshold_segmentation(img_fore_defect, args.threshold_r_b)
-            # cv2.imshow('img_fore_defect', img_fore_defect)
+            cv2.imshow('img_fore_defect2', img_fore_defect)
             thresholded_s_l = threshold_segmentation(s_l, args.threshold_s_l)
             new_bin_img = largest_connected_component(thresholded_s_l)
             # zhongggggg = cv2.bitwise_or(new_bin_img, cv2.imread('defect_mask.bmp', cv2.IMREAD_GRAYSCALE))
@@ -239,11 +240,23 @@ def main():
             cv2.imshow('defect', defect)
             edge, mask = draw_tomato_edge(cv2.imread(img_path), new_bin_img)
             org_defect = bitwise_and_rgb_with_binary(edge, new_bin_img)
+
+
             fore = bitwise_and_rgb_with_binary(cv2.imread(img_path), mask)
+
+
             fore_g_r_t = threshold_segmentation(extract_g_r(fore), 20)
+            #统计白色像素点个数
+            print(np.sum(fore_g_r_t == 255))
+            print(np.sum(mask == 255))
+            print(np.sum(fore_g_r_t == 255)/np.sum(mask == 255))
+
             fore_g_r_t_ture = bitwise_and_rgb_with_binary(cv2.imread(img_path), fore_g_r_t)
-            cv2.imwrite('defect_big.bmp', fore_g_r_t_ture)
+            # cv2.imwrite('defect_big.bmp', fore_g_r_t_ture)
+            org_defect_new = bitwise_and_rgb_with_binary(edge, new_bin_img)
             res = cv2.bitwise_or(new_bin_img, fore_g_r_t)
+            nogreen = bitwise_and_rgb_with_binary(edge, res)
+            cv2.imshow('nogreen', nogreen)
             white = find_reflection(img_path)
 
             # SVM预测
@@ -260,13 +273,12 @@ def main():
             cv2.imshow('fore', fore)
             cv2.imshow('fore_g_r_t', fore_g_r_t)
             cv2.imshow('mask', mask)
-            print('mask', mask.shape)
-            print('filled', filled_img.shape)
-            print('largest', new_bin_img.shape)
-            print('rp', org_defect.shape)
             cv2.imshow('res', res)
 
-
+            # lower_hsv = np.array([19, 108, 15])
+            # upper_hsv = np.array([118, 198, 134])
+            # max_connected_area = extract_max_connected_area(img_path, lower_hsv, upper_hsv)
+            # cv2.imshow('Max Connected Area', max_connected_area)
 
             # 显示原始图像
             original_img = cv2.imread(img_path)

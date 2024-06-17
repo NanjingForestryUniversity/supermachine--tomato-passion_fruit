@@ -109,13 +109,15 @@ class Pipe:
         :return: 指令类型和内容
         """
         try:
-            assert len(data) > 2
+            assert len(data) > 1
         except AssertionError:
-            logging.error('指令转换失败，长度不足3')
+            logging.error('指令转换失败，长度不足2')
             return '', None
         cmd, data = data[:2], data[2:]
         cmd = cmd.decode('ascii').strip().upper()
-
+        # 如果收到的是预热指令'YR'，直接返回命令和None，不处理图像数据
+        if cmd == 'YR':
+            return cmd, None
         n_rows, n_cols, img = data[:2], data[2:4], data[4:]
         try:
             n_rows, n_cols = [int.from_bytes(x, byteorder='big') for x in [n_rows, n_cols]]
@@ -126,7 +128,7 @@ class Pipe:
             assert n_rows * n_cols * 3 == len(img)
             # 因为是float32类型 所以长度要乘12 ，如果是uint8则乘3
         except AssertionError:
-            logging.error('图像指令IM转换失败，数据长度错误')
+            logging.error('图像指令转换失败，数据长度错误')
             return '', None
         img = np.frombuffer(img, dtype=np.uint8).reshape(n_rows, n_cols, -1)
         return cmd, img
