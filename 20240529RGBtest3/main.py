@@ -89,7 +89,7 @@ def main(is_debug=False):
     _ = detector.predict(np.ones((30, 30, 224), dtype=np.uint16))
     _, _, _, _, _ =dp.analyze_tomato(cv2.imread(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\tomato_img\bad\71.bmp'))
     _, _, _, _, _ = dp.analyze_passion_fruit(cv2.imread(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\passion_fruit_img\38.bmp'))
-    # print('初始化完成')
+    print('初始化完成')
 
     rgb_receive_name = r'\\.\pipe\rgb_receive'
     rgb_send_name = r'\\.\pipe\rgb_send'
@@ -98,9 +98,12 @@ def main(is_debug=False):
     rgb_receive, rgb_send, spec_receive = pipe.create_pipes(rgb_receive_name, rgb_send_name, spec_receive_name)
     # 预热循环，只处理cmd为'YR'的数据
     while True:
+        start_time00 = time.time()
         data = pipe.receive_rgb_data(rgb_receive)
         cmd, _ = pipe.parse_img(data)
-        if cmd != 'YR':
+        end_time00 = time.time()
+        print(f'接收预热数据时间：{end_time00 - start_time00}秒')
+        if cmd == 'YR':
             break  # 当接收到的不是预热命令时，结束预热循环
     while True:
 
@@ -108,15 +111,15 @@ def main(is_debug=False):
         images = []
         cmd = None
         for _ in range(5):
-            # start_time1 = time.time()
+            start_time1 = time.time()
             data = pipe.receive_rgb_data(rgb_receive)
-            # end_time10 = time.time()
-            # print(f'接收一份数据时间：{end_time10 - start_time1}秒')
-            # start_time11 = time.time()
+            end_time10 = time.time()
+            print(f'接收一份数据时间：{end_time10 - start_time1}秒')
+            start_time11 = time.time()
             cmd, img = pipe.parse_img(data)
-            # end_time1 = time.time()
-            # print(f'处理一份数据时间：{end_time1 - start_time11}秒')
-            # print(f'接收1张图时间：{end_time1 - start_time1}秒')
+            end_time1 = time.time()
+            print(f'处理一份数据时间：{end_time1 - start_time11}秒')
+            print(f'接收1张图时间：{end_time1 - start_time1}秒')
             # print(cmd, img.shape)
             # #打印img的数据类型
             # print(img.dtype)
@@ -127,18 +130,18 @@ def main(is_debug=False):
             continue
         spec = None
         if cmd == 'PF':
-            # start_time2 = time.time()
+            start_time2 = time.time()
             spec_data = pipe.receive_spec_data(spec_receive)
             _, spec = pipe.parse_spec(spec_data)
-            # end_time2 = time.time()
-            # print(f'接收光谱数据时间：{end_time2 - start_time2}秒')
+            end_time2 = time.time()
+            print(f'接收光谱数据时间：{end_time2 - start_time2}秒')
             # print(spec.shape)
-        # start_time3 = time.time()
+        start_time3 = time.time()
         response = process_data(cmd, images, spec, dp, pipe, detector)
-        # end_time3 = time.time()
-        # print(f'处理时间：{end_time3 - start_time3}秒')
+        end_time3 = time.time()
+        print(f'处理时间：{end_time3 - start_time3}秒')
         end_time = time.time()
-        # print(f'全流程时间：{end_time - start_time}秒')
+        print(f'全流程时间：{end_time - start_time}秒')
         if response:
             logging.info(f'处理成功，响应为: {response}')
         else:

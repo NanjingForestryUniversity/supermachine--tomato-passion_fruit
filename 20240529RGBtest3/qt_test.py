@@ -71,6 +71,8 @@ class MainWindow(QMainWindow):
         rgb_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith(('.bmp'))][:5]
         spec_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.raw')][:1]
 
+        self.send_YR()
+
         for image_path in rgb_files:
             img = cv2.imread(image_path, cv2.IMREAD_COLOR)
             img = np.asarray(img, dtype=np.uint8)
@@ -115,6 +117,18 @@ class MainWindow(QMainWindow):
                 print(f"数据发送失败. 错误原因: {e}")
 
         self.receive_result()
+
+    def send_YR(self):
+
+        length = 2
+        length = length.to_bytes(4, byteorder='big')
+        cmd = 'YR'
+        data_send = length + cmd.upper().encode('ascii')
+        try:
+            win32file.WriteFile(self.rgb_send, data_send)
+            print("发送预热指令成功")
+        except Exception as e:
+            print(f"发送预热指令失败. 错误原因: {e}")
 
     def receive_result(self):
         try:
