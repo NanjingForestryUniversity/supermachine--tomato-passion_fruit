@@ -495,6 +495,7 @@ class Data_processing:
         # 设置 S-L 通道阈值并处理图像
         threshold_s_l = 180
         threshold_fore_g_r_t = 20
+        img = cv2.cvtColor(img,cv2.COLOR_RGB2BGR)
         s_l = tomato.extract_s_l(img)
         thresholded_s_l = tomato.threshold_segmentation(s_l, threshold_s_l)
         new_bin_img = tomato.largest_connected_component(thresholded_s_l)
@@ -526,6 +527,7 @@ class Data_processing:
         # 创建PassionFruit类的实例
         pf = Passion_fruit(hue_value=hue_value, hue_delta=hue_delta, value_target=value_target, value_delta=value_delta)
 
+        img = cv2.cvtColor(img,cv2.COLOR_RGB2BGR)
         hsv_image = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         combined_mask = pf.create_mask(hsv_image)
         combined_mask = pf.apply_morphology(combined_mask)
