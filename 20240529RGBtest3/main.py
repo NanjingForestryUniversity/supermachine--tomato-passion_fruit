@@ -124,13 +124,15 @@ def main(is_debug=False):
             print(f'接收一张图时间：{end_time1 - start_time1}秒')
 
             # 使用分类器进行预测
-            prediction = classifier.predict(img)
-            print(f'预测结果：{prediction}')
+            # prediction = classifier.predict(img)
+            # print(f'预测结果：{prediction}')
+            #默认全为有果
+            prediction = 1
             if prediction == 1:
                 images.append(img)
             else:
                 response = pipe.send_data(cmd='KO', brix=0, diameter=0, green_percentage=0, weigth=0, defect_num=0,
-                                           total_defect_area=0, rp=None)
+                                           total_defect_area=0, rp=np.zeros((100, 100, 3), dtype=np.uint8))
                 print("图像中无果，跳过此图像")
                 continue
 

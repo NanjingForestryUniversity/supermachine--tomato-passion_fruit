@@ -173,17 +173,17 @@ class Pipe:
         :return:
         '''
         cmd = cmd.strip().upper()
-        if cmd == 'KO':
-            cmd_ko = cmd.encode('ascii')
-            length = (2).to_bytes(4, byteorder='big')  # 因为只有KO两个字节，所以长度是2
-            send_message = length + cmd_ko
-            try:
-                win32file.WriteFile(self.rgb_send, send_message)
-                print('KO消息发送成功')
-            except Exception as e:
-                logging.error(f'发送KO指令失败，错误类型：{e}')
-                return False
-            return True
+        # if cmd == 'KO':
+        #     cmd_ko = cmd.encode('ascii')
+        #     length = (2).to_bytes(4, byteorder='big')  # 因为只有KO两个字节，所以长度是2
+        #     send_message = length + cmd_ko
+        #     try:
+        #         win32file.WriteFile(self.rgb_send, send_message)
+        #         print('KO消息发送成功')
+        #     except Exception as e:
+        #         logging.error(f'发送KO指令失败，错误类型：{e}')
+        #         return False
+        #     return True
 
         cmd_type = 'RE'
         cmd_re = cmd_type.upper().encode('ascii')
@@ -210,6 +210,24 @@ class Pipe:
             gp = 0
             gp = gp.to_bytes(1, byteorder='big')
             weigth = weigth.to_bytes(1, byteorder='big')
+            send_message = length + cmd_re + brix + gp + diameter + weigth + defect_num + total_defect_area + height + width + img_bytes
+        elif cmd == 'KO':
+            brix = 0
+            brix = brix.to_bytes(2, byteorder='big')
+            gp = 0
+            gp = gp.to_bytes(1, byteorder='big')
+            weigth = 0
+            weigth = weigth.to_bytes(1, byteorder='big')
+            defect_num = 0
+            defect_num = defect_num.to_bytes(2, byteorder='big')
+            total_defect_area = 0
+            total_defect_area = total_defect_area.to_bytes(4, byteorder='big')
+            height = 100
+            height = height.to_bytes(2, byteorder='big')
+            width = 100
+            width = width.to_bytes(2, byteorder='big')
+            img_bytes = np.zeros((100, 100, 3), dtype=np.uint8).tobytes()
+            length = (18).to_bytes(4, byteorder='big')
             send_message = length + cmd_re + brix + gp + diameter + weigth + defect_num + total_defect_area + height + width + img_bytes
         try:
             win32file.WriteFile(self.rgb_send, send_message)
