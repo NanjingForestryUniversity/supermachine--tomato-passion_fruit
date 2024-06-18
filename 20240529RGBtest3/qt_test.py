@@ -8,11 +8,8 @@ import sys
 import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QVBoxLayout, QWidget
 from PyQt5.QtGui import QPixmap, QImage
-import win32pipe
 import win32file
-import struct
 from PIL import Image
-import io
 import numpy as np
 import cv2
 
@@ -68,6 +65,11 @@ class MainWindow(QMainWindow):
         )
 
     def send_image_group(self, image_dir):
+        '''
+        发送图像数据
+        :param image_dir: bmp和raw文件所在文件夹
+        :return:
+        '''
         rgb_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith(('.bmp'))][:5]
         spec_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.raw')][:1]
 
@@ -75,6 +77,7 @@ class MainWindow(QMainWindow):
 
         for image_path in rgb_files:
             img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = np.asarray(img, dtype=np.uint8)
 
 
@@ -86,6 +89,7 @@ class MainWindow(QMainWindow):
                 width = width.to_bytes(2, byteorder='big')
                 img_data = img.tobytes()
                 length = (len(img_data) + 6).to_bytes(4, byteorder='big')
+                # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
                 cmd = 'PF'
                 data_send = length + cmd.upper().encode('ascii') + height + width + img_data
                 win32file.WriteFile(self.rgb_send, data_send)
@@ -108,6 +112,7 @@ class MainWindow(QMainWindow):
                 weight = weight.to_bytes(2, byteorder='big')
                 bands = bands.to_bytes(2, byteorder='big')
                 length = (len(spec_data)+8).to_bytes(4, byteorder='big')
+                # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
                 cmd = 'PF'
                 data_send = length + cmd.upper().encode('ascii') + heigth + weight + bands + spec_data
                 win32file.WriteFile(self.spec_send, data_send)
@@ -119,7 +124,10 @@ class MainWindow(QMainWindow):
         self.receive_result()
 
     def send_YR(self):
-
+        '''
+        发送预热指令
+        :return:
+        '''
         length = 2
         length = length.to_bytes(4, byteorder='big')
         cmd = 'YR'
@@ -133,15 +141,15 @@ class MainWindow(QMainWindow):
     def receive_result(self):
         try:
             # 读取结果数据
-            # 读取4字节的数据长度信息，并将其转换为整数
+            # 读取4个字节的数据长度信息，并将其转换为整数
             data_length = int.from_bytes(win32file.ReadFile(self.rgb_receive, 4)[1], byteorder='big')
             print(f"应该接收到的数据长度: {data_length}")
             # 根据读取到的数据长度，读取对应长度的数据
             data = win32file.ReadFile(self.rgb_receive, data_length)[1]
-            print(f"接收到的数据长度: {len(data)}")
+            print(f"实际接收到的数据长度: {len(data)}")
             # 解析数据
             cmd_result = data[:2].decode('ascii').strip().upper()
-            brix = int.from_bytes(data[2:4], byteorder='big')
+            brix = (int.from_bytes(data[2:4], byteorder='big')) / 1000
             green_percentage = int.from_bytes(data[4:5], byteorder='big')
             diameter = int.from_bytes(data[5:7], byteorder='big')
             weight = int.from_bytes(data[7:8], byteorder='big')
@@ -150,9 +158,9 @@ class MainWindow(QMainWindow):
             heigth = int.from_bytes(data[14:16], byteorder='big')
             width = int.from_bytes(data[16:18], byteorder='big')
             rp = data[18:]
-            print(heigth, width)
             img = np.frombuffer(rp, dtype=np.uint8).reshape(heigth, width, -1)
-            print(f"接收到的结果数据: {cmd_result}, {brix}, {green_percentage}, {diameter}, {weight}, {defect_num}, {total_defect_area}, {img.shape}")
+            print(f"指令:{cmd_result}, 糖度值:{brix}, 绿色占比:{green_percentage}, 直径:{diameter}, "
+                  f"预估重量:{weight}, 缺陷个数:{defect_num}, 缺陷面积:{total_defect_area}, 结果图的尺寸:{img.shape}")
 
 
             # 显示结果图像
@@ -179,6 +187,10 @@ if __name__ == "__main__":
     4. 打开文件对话框
     5. 进入Qt事件循环
     '''
+    #运行main.py后，运行qt_test.py
+    #运行qt_test.py后，选择文件夹，自动读取文件夹下的bmp和raw文件，发送到main.py
+    #main.py接收到数据后，返回结果数据，qt_test.py接收到结果数据，显示图片
+    #为确保测试正确，测试文件夹下的文件数量应该为5个bmp文件和1个raw文件
     app = QApplication(sys.argv)
     main_window = MainWindow()
     main_window.show()
