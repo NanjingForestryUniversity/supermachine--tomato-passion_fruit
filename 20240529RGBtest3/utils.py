@@ -6,11 +6,7 @@
 
 
 import shutil
-
 import os
-
-
-
 import win32file
 import win32pipe
 import time
@@ -164,26 +160,31 @@ class Pipe:
         return cmd, spec
 
     def send_data(self,cmd:str, brix, green_percentage, weigth, diameter, defect_num, total_defect_area, rp):
-        # start_time = time.time()
-        #
-        # rp1 = Image.fromarray(rp.astype(np.uint8))
-        # # cv2.imwrite('rp1.bmp', rp1)
-        #
-        # # 将 Image 对象保存到 BytesIO 流中
-        # img_bytes = io.BytesIO()
-        # rp1.save(img_bytes, format='BMP')
-        # img_bytes = img_bytes.getvalue()
-
-        # width = rp.shape[0]
-        # height = rp.shape[1]
-        # print(width, height)
-        # img_bytes = rp.tobytes()
-        # length = len(img_bytes) + 18
-        # print(length)
-        # length = length.to_bytes(4, byteorder='big')
-        # width = width.to_bytes(2, byteorder='big')
-        # height = height.to_bytes(2, byteorder='big')
+        '''
+        发送数据
+        :param cmd:
+        :param brix:
+        :param green_percentage:
+        :param weigth:
+        :param diameter:
+        :param defect_num:
+        :param total_defect_area:
+        :param rp:
+        :return:
+        '''
         cmd = cmd.strip().upper()
+        if cmd == 'KO':
+            cmd_ko = cmd.encode('ascii')
+            length = (2).to_bytes(4, byteorder='big')  # 因为只有KO两个字节，所以长度是2
+            send_message = length + cmd_ko
+            try:
+                win32file.WriteFile(self.rgb_send, send_message)
+                print('KO消息发送成功')
+            except Exception as e:
+                logging.error(f'发送KO指令失败，错误类型：{e}')
+                return False
+            return True
+
         cmd_type = 'RE'
         cmd_re = cmd_type.upper().encode('ascii')
         img = np.asarray(rp, dtype=np.uint8)  # 将图像转换为 NumPy 数组
@@ -205,19 +206,19 @@ class Pipe:
             weigth = weigth.to_bytes(1, byteorder='big')
             send_message = length + cmd_re + brix + gp + diameter + weigth + defect_num + total_defect_area + height + width + img_bytes
         elif cmd == 'PF':
-            brix = int(brix.item() * 1000).to_bytes(2, byteorder='big')
+            brix = int(brix * 1000).to_bytes(2, byteorder='big')
             gp = 0
             gp = gp.to_bytes(1, byteorder='big')
             weigth = weigth.to_bytes(1, byteorder='big')
             send_message = length + cmd_re + brix + gp + diameter + weigth + defect_num + total_defect_area + height + width + img_bytes
         try:
             win32file.WriteFile(self.rgb_send, send_message)
-            time.sleep(0.01)
+            # time.sleep(0.01)
             print('发送成功')
-            print(len(send_message), len(img_bytes))
+            # print(len(send_message), len(img_bytes))
             # print(len(send_message))
         except Exception as e:
-            logging.error(f'发送完成指令失败，错误类型：{e}')
+            logging.error(f'发送指令失败，错误类型：{e}')
             return False
 
         # end_time = time.time()

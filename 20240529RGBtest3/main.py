@@ -10,7 +10,7 @@ import os
 import cv2
 
 from root_dir import ROOT_DIR
-from classifer import Spec_predict, Data_processing
+from classifer import Spec_predict, Data_processing, ImageClassifier
 import logging
 from utils import Pipe
 import numpy as np
@@ -76,7 +76,7 @@ def process_data(cmd: str, images: list, spec: any, dp: Data_processing, pipe: P
         return response
 
 def main(is_debug=False):
-    file_handler = logging.FileHandler(os.path.join(ROOT_DIR, 'tomato.log'))
+    file_handler = logging.FileHandler(os.path.join(ROOT_DIR, 'tomato.log'), encoding='utf-8')
     file_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)
@@ -84,12 +84,14 @@ def main(is_debug=False):
                         handlers=[file_handler, console_handler],
                         level=logging.DEBUG)
     detector = Spec_predict(ROOT_DIR/'models'/'passion_fruit_2.joblib')
+    classifier = ImageClassifier(ROOT_DIR/'models'/'resnet18_0616.pth', ROOT_DIR/'models'/'class_indices.json')
     dp = Data_processing()
 
     _ = detector.predict(np.ones((30, 30, 224), dtype=np.uint16))
-    _, _, _, _, _ =dp.analyze_tomato(cv2.imread(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\tomato_img\bad\71.bmp'))
-    _, _, _, _, _ = dp.analyze_passion_fruit(cv2.imread(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\passion_fruit_img\38.bmp'))
-    print('初始化完成')
+    _ = classifier.predict(np.ones((224, 224, 3), dtype=np.uint8))
+    # _, _, _, _, _ =dp.analyze_tomato(cv2.imread(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\tomato_img\bad\71.bmp'))
+    # _, _, _, _, _ = dp.analyze_passion_fruit(cv2.imread(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\passion_fruit_img\38.bmp'))
+    print('系统初始化完成')
 
     rgb_receive_name = r'\\.\pipe\rgb_receive'
     rgb_send_name = r'\\.\pipe\rgb_send'
@@ -106,7 +108,6 @@ def main(is_debug=False):
         if cmd == 'YR':
             break  # 当接收到的不是预热命令时，结束预热循环
     while True:
-
         start_time = time.time()
         images = []
         cmd = None
@@ -115,19 +116,28 @@ def main(is_debug=False):
             data = pipe.receive_rgb_data(rgb_receive)
             end_time10 = time.time()
             print(f'接收一份数据时间：{end_time10 - start_time1}秒')
+
             start_time11 = time.time()
             cmd, img = pipe.parse_img(data)
             end_time1 = time.time()
             print(f'处理一份数据时间：{end_time1 - start_time11}秒')
-            print(f'接收1张图时间：{end_time1 - start_time1}秒')
-            # print(cmd, img.shape)
-            # #打印img的数据类型
-            # print(img.dtype)
-            images.append(img)
-            # print(len(images))
-        if cmd not in ['TO', 'PF', 'YR']:
+            print(f'接收一张图时间：{end_time1 - start_time1}秒')
+
+            # 使用分类器进行预测
+            prediction = classifier.predict(img)
+            print(f'预测结果：{prediction}')
+            if prediction == 1:
+                images.append(img)
+            else:
+                response = pipe.send_data(cmd='KO', brix=0, diameter=0, green_percentage=0, weigth=0, defect_num=0,
+                                           total_defect_area=0, rp=None)
+                print("图像中无果，跳过此图像")
+                continue
+
+        if cmd not in ['TO', 'PF', 'YR', 'KO']:
             logging.error(f'错误指令，指令为{cmd}')
             continue
+
         spec = None
         if cmd == 'PF':
             start_time2 = time.time()
@@ -135,17 +145,21 @@ def main(is_debug=False):
             _, spec = pipe.parse_spec(spec_data)
             end_time2 = time.time()
             print(f'接收光谱数据时间：{end_time2 - start_time2}秒')
-            # print(spec.shape)
+
         start_time3 = time.time()
-        response = process_data(cmd, images, spec, dp, pipe, detector)
-        end_time3 = time.time()
-        print(f'处理时间：{end_time3 - start_time3}秒')
+        if images:  # 确保images不为空
+            response = process_data(cmd, images, spec, dp, pipe, detector)
+            end_time3 = time.time()
+            print(f'处理时间：{end_time3 - start_time3}秒')
+            if response:
+                logging.info(f'处理成功，响应为: {response}')
+            else:
+                logging.error('处理失败')
+        else:
+            print("没有有效的图像进行处理")
+
         end_time = time.time()
         print(f'全流程时间：{end_time - start_time}秒')
-        if response:
-            logging.info(f'处理成功，响应为: {response}')
-        else:
-            logging.error('处理失败')
 
 
 if __name__ == '__main__':
