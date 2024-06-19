@@ -74,54 +74,54 @@ class MainWindow(QMainWindow):
         spec_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.raw')][:1]
 
         self.send_YR()
+        for _ in range(20):
+            for image_path in rgb_files:
+                img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img = np.asarray(img, dtype=np.uint8)
 
-        for image_path in rgb_files:
-            img = cv2.imread(image_path, cv2.IMREAD_COLOR)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = np.asarray(img, dtype=np.uint8)
 
+                try:
+                    # win32file.WriteFile(self.rgb_send, len(img_data).to_bytes(4, byteorder='big'))
+                    height = img.shape[0]
+                    width = img.shape[1]
+                    height = height.to_bytes(2, byteorder='big')
+                    width = width.to_bytes(2, byteorder='big')
+                    img_data = img.tobytes()
+                    length = (len(img_data) + 6).to_bytes(4, byteorder='big')
+                    # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
+                    cmd = 'PF'
+                    data_send = length + cmd.upper().encode('ascii') + height + width + img_data
+                    win32file.WriteFile(self.rgb_send, data_send)
+                    print(f'发送的图像数据长度: {len(data_send)}')
+                except Exception as e:
+                    print(f"数据发送失败. 错误原因: {e}")
 
-            try:
-                # win32file.WriteFile(self.rgb_send, len(img_data).to_bytes(4, byteorder='big'))
-                height = img.shape[0]
-                width = img.shape[1]
-                height = height.to_bytes(2, byteorder='big')
-                width = width.to_bytes(2, byteorder='big')
-                img_data = img.tobytes()
-                length = (len(img_data) + 6).to_bytes(4, byteorder='big')
-                # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
-                cmd = 'TO'
-                data_send = length + cmd.upper().encode('ascii') + height + width + img_data
-                win32file.WriteFile(self.rgb_send, data_send)
-                print(f'发送的图像数据长度: {len(data_send)}')
-            except Exception as e:
-                print(f"数据发送失败. 错误原因: {e}")
+            if spec_files:
+                spec_file = spec_files[0]
+                with open(spec_file, 'rb') as f:
+                    spec_data = f.read()
 
-        if spec_files:
-            spec_file = spec_files[0]
-            with open(spec_file, 'rb') as f:
-                spec_data = f.read()
+                try:
+                    # win32file.WriteFile(self.spec_send, len(spec_data).to_bytes(4, byteorder='big'))
+                    # print(f"发送的光谱数据长度: {len(spec_data)}")
+                    heigth = 30
+                    weight = 30
+                    bands = 224
+                    heigth = heigth.to_bytes(2, byteorder='big')
+                    weight = weight.to_bytes(2, byteorder='big')
+                    bands = bands.to_bytes(2, byteorder='big')
+                    length = (len(spec_data)+8).to_bytes(4, byteorder='big')
+                    # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
+                    cmd = 'PF'
+                    data_send = length + cmd.upper().encode('ascii') + heigth + weight + bands + spec_data
+                    win32file.WriteFile(self.spec_send, data_send)
+                    print(f'发送的光谱数据长度: {len(data_send)}')
+                    print(f'spec长度: {len(spec_data)}')
+                except Exception as e:
+                    print(f"数据发送失败. 错误原因: {e}")
 
-            try:
-                # win32file.WriteFile(self.spec_send, len(spec_data).to_bytes(4, byteorder='big'))
-                # print(f"发送的光谱数据长度: {len(spec_data)}")
-                heigth = 30
-                weight = 30
-                bands = 224
-                heigth = heigth.to_bytes(2, byteorder='big')
-                weight = weight.to_bytes(2, byteorder='big')
-                bands = bands.to_bytes(2, byteorder='big')
-                length = (len(spec_data)+8).to_bytes(4, byteorder='big')
-                # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
-                cmd = 'TO'
-                data_send = length + cmd.upper().encode('ascii') + heigth + weight + bands + spec_data
-                win32file.WriteFile(self.spec_send, data_send)
-                print(f'发送的光谱数据长度: {len(data_send)}')
-                print(f'spec长度: {len(spec_data)}')
-            except Exception as e:
-                print(f"数据发送失败. 错误原因: {e}")
-
-        self.receive_result()
+            self.receive_result()
 
     def send_YR(self):
         '''
