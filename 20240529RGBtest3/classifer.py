@@ -359,7 +359,7 @@ class Data_processing:
     def contour_process(self, image_array):
         # 检查图像是否为空或全黑
         if image_array is None or image_array.size == 0 or np.all(image_array == 0):
-            # print("输入的图像为空或全黑，返回一个全黑图像。")
+            logging.error("输入的图像为空或全黑，返回一个全黑图像。")
             return np.zeros_like(image_array) if image_array is not None else np.zeros((100, 100), dtype=np.uint8)
         # 应用中值滤波
         image_filtered = cv2.medianBlur(image_array, 5)
@@ -488,11 +488,18 @@ class Data_processing:
         # 将处理后的图像转换为 RGB 格式
         rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
         diameter = (long_axis + short_axis) / 2
+        if diameter < 200:
+            diameter = 0
+            green_percentage = 0
+            number_defects = 0
+            total_pixels = 0
+            rp = cv2.cvtColor(np.ones((100, 100, 3), dtype=np.uint8), cv2.COLOR_BGR2RGB)
+            return diameter, green_percentage, number_defects, total_pixels, rp
         return diameter, green_percentage, number_defects, total_pixels, rp
 
     def analyze_passion_fruit(self, img, hue_value=37, hue_delta=10, value_target=25, value_delta=10):
         if img is None:
-            print("Error: 无图像数据.")
+            logging.error("Error: 无图像数据.")
             return None
 
         # 创建PassionFruit类的实例

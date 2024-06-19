@@ -99,14 +99,14 @@ def main(is_debug=False):
     pipe = Pipe(rgb_receive_name, rgb_send_name, spec_receive_name)
     rgb_receive, rgb_send, spec_receive = pipe.create_pipes(rgb_receive_name, rgb_send_name, spec_receive_name)
     # 预热循环，只处理cmd为'YR'的数据
-    while True:
-        start_time00 = time.time()
-        data = pipe.receive_rgb_data(rgb_receive)
-        cmd, _ = pipe.parse_img(data)
-        end_time00 = time.time()
-        print(f'接收预热数据时间：{end_time00 - start_time00}秒')
-        if cmd == 'YR':
-            break  # 当接收到的不是预热命令时，结束预热循环
+    # while True:
+    #     start_time00 = time.time()
+    #     data = pipe.receive_rgb_data(rgb_receive)
+    #     cmd, _ = pipe.parse_img(data)
+    #     end_time00 = time.time()
+    #     print(f'接收预热数据时间：{end_time00 - start_time00}秒')
+    #     if cmd == 'YR':
+    #         break  # 当接收到的不是预热命令时，结束预热循环
     while True:
         start_time = time.time()
         images = []
@@ -115,13 +115,13 @@ def main(is_debug=False):
             start_time1 = time.time()
             data = pipe.receive_rgb_data(rgb_receive)
             end_time10 = time.time()
-            print(f'接收一份数据时间：{end_time10 - start_time1}秒')
+            # print(f'接收一份数据时间：{end_time10 - start_time1}秒')
 
             start_time11 = time.time()
             cmd, img = pipe.parse_img(data)
             end_time1 = time.time()
-            print(f'处理一份数据时间：{end_time1 - start_time11}秒')
-            print(f'接收一张图时间：{end_time1 - start_time1}秒')
+            # print(f'处理一份数据时间：{end_time1 - start_time11}秒')
+            # print(f'接收一张图时间：{end_time1 - start_time1}秒')
 
             # 使用分类器进行预测
             # prediction = classifier.predict(img)
@@ -133,7 +133,7 @@ def main(is_debug=False):
             else:
                 response = pipe.send_data(cmd='KO', brix=0, diameter=0, green_percentage=0, weigth=0, defect_num=0,
                                            total_defect_area=0, rp=np.zeros((100, 100, 3), dtype=np.uint8))
-                print("图像中无果，跳过此图像")
+                logging.info("图像中无果，跳过此图像")
                 continue
 
         if cmd not in ['TO', 'PF', 'YR', 'KO']:
@@ -146,19 +146,19 @@ def main(is_debug=False):
             spec_data = pipe.receive_spec_data(spec_receive)
             _, spec = pipe.parse_spec(spec_data)
             end_time2 = time.time()
-            print(f'接收光谱数据时间：{end_time2 - start_time2}秒')
+            # print(f'接收光谱数据时间：{end_time2 - start_time2}秒')
 
         start_time3 = time.time()
         if images:  # 确保images不为空
             response = process_data(cmd, images, spec, dp, pipe, detector)
             end_time3 = time.time()
-            print(f'处理时间：{end_time3 - start_time3}秒')
+            # print(f'处理时间：{end_time3 - start_time3}秒')
             if response:
                 logging.info(f'处理成功，响应为: {response}')
             else:
                 logging.error('处理失败')
         else:
-            print("没有有效的图像进行处理")
+            logging.error("没有有效的图像进行处理")
 
         end_time = time.time()
         print(f'全流程时间：{end_time - start_time}秒')
