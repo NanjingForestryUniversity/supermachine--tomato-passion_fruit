@@ -72,12 +72,12 @@ class Pipe:
             result, data = win32file.ReadFile(rgb_receive, data_size, None)
             # 检查读取操作是否成功
             if result != 0:
-                print(f"读取失败，错误代码: {result}")
+                logging.error(f"读取失败，错误代码: {result}")
                 return None
             # 返回成功读取的数据
             return data
         except Exception as e:
-            print(f"数据接收失败，错误原因: {e}")
+            logging.error(f"数据接收失败，错误原因: {e}")
             return None
 
     def receive_spec_data(self, spec_receive):
@@ -89,12 +89,12 @@ class Pipe:
             result, spec_data = win32file.ReadFile(spec_receive, data_size, None)
             # 检查读取操作是否成功
             if result != 0:
-                print(f"读取失败，错误代码: {result}")
+                logging.error(f"读取失败，错误代码: {result}")
                 return None
             # 返回成功读取的数据
             return spec_data
         except Exception as e:
-            print(f"数据接收失败，错误原因: {e}")
+            logging.error(f"数据接收失败，错误原因: {e}")
             return None
 
     def parse_img(self, data: bytes) -> (str, any):
@@ -232,41 +232,17 @@ class Pipe:
         try:
             win32file.WriteFile(self.rgb_send, send_message)
             # time.sleep(0.01)
-            print('发送成功')
-            # print(len(send_message), len(img_bytes))
-            # print(len(send_message))
+            # print('发送成功')
         except Exception as e:
             logging.error(f'发送指令失败，错误类型：{e}')
             return False
-
         # end_time = time.time()
         # print(f'发送时间：{end_time - start_time}秒')
-
         return True
 
 
 
 
-def mkdir_if_not_exist(dir_name, is_delete=False):
-    """
-    创建文件夹
-    :param dir_name: 文件夹
-    :param is_delete: 是否删除
-    :return: 是否成功
-    """
-    try:
-        if is_delete:
-            if os.path.exists(dir_name):
-                shutil.rmtree(dir_name)
-                print('[Info] 文件夹 "%s" 存在, 删除文件夹.' % dir_name)
-
-        if not os.path.exists(dir_name):
-            os.makedirs(dir_name)
-            print('[Info] 文件夹 "%s" 不存在, 创建文件夹.' % dir_name)
-        return True
-    except Exception as e:
-        print('[Exception] %s' % e)
-        return False
 
 def create_file(file_name):
     """

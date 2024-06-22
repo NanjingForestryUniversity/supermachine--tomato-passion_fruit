@@ -4,20 +4,18 @@
 # @File    : classifer.py
 # @Software: PyCharm
 
-
-import cv2
-import numpy as np
 import os
+import cv2
+import json
 import utils
-from sklearn.ensemble import RandomForestRegressor
 import joblib
-import torch.nn as nn
-import torch
+import logging
+import numpy as np
 from PIL import Image
 from torchvision import transforms
-import numpy as np
-import json
-import logging
+from sklearn.ensemble import RandomForestRegressor
+import torch
+import torch.nn as nn
 
 
 class Tomato:
@@ -297,11 +295,11 @@ class Passion_fruit:
         '''
         # 检查 RGB 图像是否为空或全黑
         if rgb_img is None or rgb_img.size == 0 or np.all(rgb_img == 0):
-            logging.error("RGB 图像为空或全黑，返回一个全黑RGB图像。")
+            logging.warning("RGB 图像为空或全黑，返回一个全黑RGB图像。")
             return np.zeros((100, 100, 3), dtype=np.uint8) if rgb_img is None else np.zeros_like(rgb_img)
         # 检查二值图像是否为空或全黑
         if bin_img is None or bin_img.size == 0 or np.all(bin_img == 0):
-            logging.error("二值图像为空或全黑，返回一个全黑RGB图像。")
+            logging.warning("二值图像为空或全黑，返回一个全黑RGB图像。")
             return np.zeros((100, 100, 3), dtype=np.uint8) if rgb_img is None else np.zeros_like(rgb_img)
         # 转换二值图像为三通道
         try:
@@ -359,7 +357,7 @@ class Data_processing:
     def contour_process(self, image_array):
         # 检查图像是否为空或全黑
         if image_array is None or image_array.size == 0 or np.all(image_array == 0):
-            logging.error("输入的图像为空或全黑，返回一个全黑图像。")
+            logging.warning("输入的图像为空或全黑，返回一个全黑图像。")
             return np.zeros_like(image_array) if image_array is not None else np.zeros((100, 100), dtype=np.uint8)
         # 应用中值滤波
         image_filtered = cv2.medianBlur(image_array, 5)
@@ -520,6 +518,10 @@ class Data_processing:
         diameter = (long_axis + short_axis) / 2
 
         return diameter, weigth, number_defects, total_pixels, rp
+
+
+#下面封装的是ResNet18和ResNet34的网络模型构建
+#原定用于构建RGB图像有果无果判断，后续发现存在纰漏，暂时搁置并未实际使用
 
 class BasicBlock(nn.Module):
     '''
@@ -689,7 +691,6 @@ def resnet18(num_classes=1000, include_top=True):
 
 def resnetzy(num_classes=1000, include_top=True):
     return ResNet(Bottleneck, [2, 2, 2, 2], num_classes=num_classes, include_top=include_top)
-
 
 
 class ImageClassifier:
