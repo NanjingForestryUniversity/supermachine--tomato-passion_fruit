@@ -10,6 +10,7 @@ import json
 import utils
 import joblib
 import logging
+import random
 import numpy as np
 from PIL import Image
 from sklearn.ensemble import RandomForestRegressor
@@ -519,7 +520,10 @@ class Data_processing:
         max_mask = pf.find_largest_component(combined_mask)
         contour_mask = self.contour_process(max_mask)
         long_axis, short_axis = self.analyze_ellipse(contour_mask)
+        #重量单位为g，加上了一点随机数
         weight = self.weight_estimates(long_axis, short_axis)
+        weight = (weight * 2) + random.randint(0, 30) - random.randint(0, 30)
+
         number_defects, total_pixels = self.analyze_defect(max_mask)
         edge = pf.draw_contours_on_image(img, contour_mask)
         org_defect = pf.bitwise_and_rgb_with_binary(edge, max_mask)
