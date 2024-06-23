@@ -150,17 +150,17 @@ class MainWindow(QMainWindow):
             # 解析数据
             cmd_result = data[:2].decode('ascii').strip().upper()
             brix = (int.from_bytes(data[2:4], byteorder='big')) / 1000
-            green_percentage = int.from_bytes(data[4:5], byteorder='big')
+            green_percentage = (int.from_bytes(data[4:5], byteorder='big')) / 100
             diameter = int.from_bytes(data[5:7], byteorder='big')
             weight = int.from_bytes(data[7:8], byteorder='big')
             defect_num = int.from_bytes(data[8:10], byteorder='big')
-            total_defect_area = int.from_bytes(data[10:14], byteorder='big')
+            total_defect_area = (int.from_bytes(data[10:14], byteorder='big')) / 100
             heigth = int.from_bytes(data[14:16], byteorder='big')
             width = int.from_bytes(data[16:18], byteorder='big')
             rp = data[18:]
             img = np.frombuffer(rp, dtype=np.uint8).reshape(heigth, width, -1)
-            print(f"指令:{cmd_result}, 糖度值:{brix}, 绿色占比:{green_percentage}, 直径:{diameter}, "
-                  f"预估重量:{weight}, 缺陷个数:{defect_num}, 缺陷面积:{total_defect_area}, 结果图的尺寸:{img.shape}")
+            print(f"指令:{cmd_result}, 糖度值:{brix}, 绿色占比:{green_percentage}, 直径:{diameter}cm, "
+                  f"预估重量:{weight}g, 缺陷个数:{defect_num}, 缺陷面积:{total_defect_area}cm^2, 结果图的尺寸:{img.shape}")
 
 
             # 显示结果图像

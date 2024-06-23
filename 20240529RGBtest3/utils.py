@@ -159,13 +159,13 @@ class Pipe:
         spec = np.frombuffer(spec, dtype=np.uint16).reshape((n_rows, n_bands, -1)).transpose(0, 2, 1)
         return cmd, spec
 
-    def send_data(self,cmd:str, brix, green_percentage, weigth, diameter, defect_num, total_defect_area, rp):
+    def send_data(self,cmd:str, brix, green_percentage, weight, diameter, defect_num, total_defect_area, rp):
         '''
         发送数据
         :param cmd:
         :param brix:
         :param green_percentage:
-        :param weigth:
+        :param weight:
         :param diameter:
         :param defect_num:
         :param total_defect_area:
@@ -195,6 +195,7 @@ class Pipe:
         img_bytes = img.tobytes()
         diameter = diameter.to_bytes(2, byteorder='big')
         defect_num = defect_num.to_bytes(2, byteorder='big')
+        total_defect_area = total_defect_area * 1000
         total_defect_area = int(total_defect_area).to_bytes(4, byteorder='big')
         length = len(img_bytes) + 18
         length = length.to_bytes(4, byteorder='big')
@@ -202,22 +203,22 @@ class Pipe:
             brix = 0
             brix = brix.to_bytes(2, byteorder='big')
             gp = green_percentage.to_bytes(1, byteorder='big')
-            weigth = 0
-            weigth = weigth.to_bytes(1, byteorder='big')
-            send_message = length + cmd_re + brix + gp + diameter + weigth + defect_num + total_defect_area + height + width + img_bytes
+            weight = 0
+            weight = weight.to_bytes(1, byteorder='big')
+            send_message = length + cmd_re + brix + gp + diameter + weight + defect_num + total_defect_area + height + width + img_bytes
         elif cmd == 'PF':
             brix = int(brix * 1000).to_bytes(2, byteorder='big')
             gp = 0
             gp = gp.to_bytes(1, byteorder='big')
-            weigth = weigth.to_bytes(1, byteorder='big')
-            send_message = length + cmd_re + brix + gp + diameter + weigth + defect_num + total_defect_area + height + width + img_bytes
+            weight = weight.to_bytes(1, byteorder='big')
+            send_message = length + cmd_re + brix + gp + diameter + weight + defect_num + total_defect_area + height + width + img_bytes
         elif cmd == 'KO':
             brix = 0
             brix = brix.to_bytes(2, byteorder='big')
             gp = 0
             gp = gp.to_bytes(1, byteorder='big')
-            weigth = 0
-            weigth = weigth.to_bytes(1, byteorder='big')
+            weight = 0
+            weight = weight.to_bytes(1, byteorder='big')
             defect_num = 0
             defect_num = defect_num.to_bytes(2, byteorder='big')
             total_defect_area = 0
@@ -228,7 +229,7 @@ class Pipe:
             width = width.to_bytes(2, byteorder='big')
             img_bytes = np.zeros((100, 100, 3), dtype=np.uint8).tobytes()
             length = (18).to_bytes(4, byteorder='big')
-            send_message = length + cmd_re + brix + gp + diameter + weigth + defect_num + total_defect_area + height + width + img_bytes
+            send_message = length + cmd_re + brix + gp + diameter + weight + defect_num + total_defect_area + height + width + img_bytes
         try:
             win32file.WriteFile(self.rgb_send, send_message)
             # time.sleep(0.01)

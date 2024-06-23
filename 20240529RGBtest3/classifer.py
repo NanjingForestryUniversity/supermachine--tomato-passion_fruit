@@ -417,6 +417,7 @@ class Data_processing:
         # 初始化统计数据
         count_black_areas = 0
         total_pixels_black_areas = 0
+        s = 0.00021973702422145334
 
         # 对于每个白色区域，查找内部的黑色小区域
         for contour in contours_white:
@@ -436,7 +437,7 @@ class Data_processing:
                 total_pixels_black_areas += cv2.contourArea(c)
 
         number_defects = count_black_areas
-        total_pixels = total_pixels_black_areas
+        total_pixels = total_pixels_black_areas * s
         return number_defects, total_pixels
 
     def weight_estimates(self, long_axis, short_axis):
@@ -451,11 +452,12 @@ class Data_processing:
         float: 估算的西红柿体积
         """
         density = 0.652228972
-        a = ((long_axis / 535) * 6.3) / 2
-        b = ((short_axis /535) * 6.3) / 2
+        a = ((long_axis / 425) * 6.3) / 2
+        b = ((short_axis / 425) * 6.3) / 2
         volume = 4 / 3 * np.pi * a * b * b
-        weigth = round(volume * density)
-        return weigth
+        weight = round(volume * density)
+        #重量单位为g
+        return weight
     def analyze_tomato(self, img):
         """
         分析给定图像，提取和返回西红柿的长径、短径、缺陷数量和缺陷总面积，并返回处理后的图像。
@@ -490,8 +492,10 @@ class Data_processing:
         number_defects, total_pixels = self.analyze_defect(new_bin_img)
         # 将处理后的图像转换为 RGB 格式
         rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
-        diameter = (long_axis + short_axis) / 2
-        if diameter < 200:
+        #直径单位为cm，所以需要除以10
+        diameter = (long_axis + short_axis) /425 * 63 / 2 / 10
+        # 如果直径小于3，判断为空果拖异常图，则将所有值重置为0
+        if diameter < 3:
             diameter = 0
             green_percentage = 0
             number_defects = 0
@@ -515,14 +519,15 @@ class Data_processing:
         max_mask = pf.find_largest_component(combined_mask)
         contour_mask = self.contour_process(max_mask)
         long_axis, short_axis = self.analyze_ellipse(contour_mask)
-        weigth = self.weight_estimates(long_axis, short_axis)
+        weight = self.weight_estimates(long_axis, short_axis)
         number_defects, total_pixels = self.analyze_defect(max_mask)
         edge = pf.draw_contours_on_image(img, contour_mask)
         org_defect = pf.bitwise_and_rgb_with_binary(edge, max_mask)
         rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
-        diameter = (long_axis + short_axis) / 2
+        #直径单位为cm，所以需要除以10
+        diameter = (long_axis + short_axis) /425 * 63 / 2 / 10
 
-        return diameter, weigth, number_defects, total_pixels, rp
+        return diameter, weight, number_defects, total_pixels, rp
 
 
 # #下面封装的是ResNet18和ResNet34的网络模型构建

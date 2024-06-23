@@ -46,14 +46,14 @@ def process_data(cmd: str, images: list, spec: any, dp: Data_processing, pipe: P
 
         elif cmd == 'PF':
             # 百香果
-            diameter, weigth, number_defects, total_pixels, rp = dp.analyze_passion_fruit(img)
+            diameter, weight, number_defects, total_pixels, rp = dp.analyze_passion_fruit(img)
             if i <= 2:
                 diameter_axis_list.append(diameter)
                 max_defect_num = max(max_defect_num, number_defects)
                 max_total_defect_area = max(max_total_defect_area, total_pixels)
             if i == 1:
                 rp_result = rp
-                weigth = weigth
+                weight = weight
 
         else:
             logging.error(f'错误指令，指令为{cmd}')
@@ -63,14 +63,16 @@ def process_data(cmd: str, images: list, spec: any, dp: Data_processing, pipe: P
 
     if cmd == 'TO':
         brix = 0
-        weigth = 0
-        response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, green_percentage=gp, weigth=weigth,
+        weight = 0
+        response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, green_percentage=gp, weight=weight,
                                   defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
         return response
     elif cmd == 'PF':
         green_percentage = 0
         brix = detector.predict(spec)
-        response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=green_percentage, diameter=diameter, weigth=weigth,
+        if diameter == 0:
+            brix = 0
+        response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=green_percentage, diameter=diameter, weight=weight,
                                   defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
         return response
 
