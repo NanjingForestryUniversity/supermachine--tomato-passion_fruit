@@ -42,7 +42,7 @@ def process_data(cmd: str, images: list, spec: any, dp: Data_processing, pipe: P
                 max_total_defect_area = max(max_total_defect_area, total_pixels)
             if i == 1:
                 rp_result = rp
-                gp = round(green_percentage)
+                gp = round(green_percentage, 2)
 
         elif cmd == 'PF':
             # 百香果
@@ -59,11 +59,13 @@ def process_data(cmd: str, images: list, spec: any, dp: Data_processing, pipe: P
             logging.error(f'错误指令，指令为{cmd}')
             return False
 
-    diameter = round(sum(diameter_axis_list) / 3)
+    diameter = round(sum(diameter_axis_list) / 3, 2)
 
     if cmd == 'TO':
         brix = 0
         weight = 0
+        print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{gp};'
+              f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
         response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, green_percentage=gp, weight=weight,
                                   defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
         return response
@@ -72,6 +74,8 @@ def process_data(cmd: str, images: list, spec: any, dp: Data_processing, pipe: P
         brix = detector.predict(spec)
         if diameter == 0:
             brix = 0
+        # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{green_percentage};'
+              # f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
         response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=green_percentage, diameter=diameter, weight=weight,
                                   defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
         return response

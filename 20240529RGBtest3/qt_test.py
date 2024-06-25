@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         spec_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.raw')][:1]
 
         self.send_YR()
-        for _ in range(20):
+        for _ in range(5):
             for image_path in rgb_files:
                 img = cv2.imread(image_path, cv2.IMREAD_COLOR)
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -90,7 +90,7 @@ class MainWindow(QMainWindow):
                     img_data = img.tobytes()
                     length = (len(img_data) + 6).to_bytes(4, byteorder='big')
                     # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
-                    cmd = 'PF'
+                    cmd = 'TO'
                     data_send = length + cmd.upper().encode('ascii') + height + width + img_data
                     win32file.WriteFile(self.rgb_send, data_send)
                     print(f'发送的图像数据长度: {len(data_send)}')
@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
                     bands = bands.to_bytes(2, byteorder='big')
                     length = (len(spec_data)+8).to_bytes(4, byteorder='big')
                     # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
-                    cmd = 'PF'
+                    cmd = 'TO'
                     data_send = length + cmd.upper().encode('ascii') + heigth + weight + bands + spec_data
                     win32file.WriteFile(self.spec_send, data_send)
                     print(f'发送的光谱数据长度: {len(data_send)}')
@@ -151,10 +151,10 @@ class MainWindow(QMainWindow):
             cmd_result = data[:2].decode('ascii').strip().upper()
             brix = (int.from_bytes(data[2:4], byteorder='big')) / 1000
             green_percentage = (int.from_bytes(data[4:5], byteorder='big')) / 100
-            diameter = int.from_bytes(data[5:7], byteorder='big')
+            diameter = (int.from_bytes(data[5:7], byteorder='big')) / 100
             weight = int.from_bytes(data[7:8], byteorder='big')
             defect_num = int.from_bytes(data[8:10], byteorder='big')
-            total_defect_area = (int.from_bytes(data[10:14], byteorder='big')) / 100
+            total_defect_area = (int.from_bytes(data[10:14], byteorder='big')) / 1000
             heigth = int.from_bytes(data[14:16], byteorder='big')
             width = int.from_bytes(data[16:18], byteorder='big')
             rp = data[18:]

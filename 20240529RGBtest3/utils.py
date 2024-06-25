@@ -193,16 +193,15 @@ class Pipe:
         height = height.to_bytes(2, byteorder='big')
         width = width.to_bytes(2, byteorder='big')
         img_bytes = img.tobytes()
-        diameter = diameter.to_bytes(2, byteorder='big')
+        diameter = int(diameter * 100).to_bytes(2, byteorder='big')
         defect_num = defect_num.to_bytes(2, byteorder='big')
-        total_defect_area = total_defect_area * 1000
-        total_defect_area = int(total_defect_area).to_bytes(4, byteorder='big')
+        total_defect_area = int(total_defect_area * 1000).to_bytes(4, byteorder='big')
         length = len(img_bytes) + 18
         length = length.to_bytes(4, byteorder='big')
         if cmd == 'TO':
             brix = 0
             brix = brix.to_bytes(2, byteorder='big')
-            gp = green_percentage.to_bytes(1, byteorder='big')
+            gp = int(green_percentage * 100).to_bytes(1, byteorder='big')
             weight = 0
             weight = weight.to_bytes(1, byteorder='big')
             send_message = length + cmd_re + brix + gp + diameter + weight + defect_num + total_defect_area + height + width + img_bytes

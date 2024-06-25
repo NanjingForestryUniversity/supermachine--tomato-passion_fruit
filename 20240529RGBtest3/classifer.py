@@ -481,27 +481,30 @@ class Data_processing:
         org_defect = tomato.bitwise_and_rgb_with_binary(edge, new_bin_img)
         fore = tomato.bitwise_and_rgb_with_binary(img, mask)
         fore_g_r_t = tomato.threshold_segmentation(tomato.extract_g_r(fore), threshold=threshold_fore_g_r_t)
+        res = cv2.bitwise_or(new_bin_img, fore_g_r_t)
+        nogreen = tomato.bitwise_and_rgb_with_binary(edge, res)
         # 统计白色像素点个数
         # print(np.sum(fore_g_r_t == 255))
         # print(np.sum(mask == 255))
         # print(np.sum(fore_g_r_t == 255) / np.sum(mask == 255))
         green_percentage = np.sum(fore_g_r_t == 255) / np.sum(mask == 255)
-        green_percentage = round(green_percentage, 2) * 100
+        green_percentage = round(green_percentage, 2)
         # 获取西红柿的尺寸信息
         long_axis, short_axis = self.analyze_ellipse(mask)
         # 获取缺陷信息
         number_defects, total_pixels = self.analyze_defect(new_bin_img)
         # 将处理后的图像转换为 RGB 格式
-        rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
+        rp = cv2.cvtColor(nogreen, cv2.COLOR_BGR2RGB)
         #直径单位为cm，所以需要除以10
         diameter = (long_axis + short_axis) /425 * 63 / 2 / 10
+        # print(f'直径：{diameter}')
         # 如果直径小于3，判断为空果拖异常图，则将所有值重置为0
-        if diameter < 3:
+        if diameter < 2.5:
             diameter = 0
             green_percentage = 0
             number_defects = 0
             total_pixels = 0
-            rp = cv2.cvtColor(np.ones((100, 100, 3), dtype=np.uint8), cv2.COLOR_BGR2RGB)
+            rp = cv2.cvtColor(np.ones((613, 800, 3), dtype=np.uint8), cv2.COLOR_BGR2RGB)
             return diameter, green_percentage, number_defects, total_pixels, rp
         return diameter, green_percentage, number_defects, total_pixels, rp
 
@@ -530,6 +533,7 @@ class Data_processing:
         rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
         #直径单位为cm，所以需要除以10
         diameter = (long_axis + short_axis) /425 * 63 / 2 / 10
+        # print(f'直径：{diameter}')
 
         return diameter, weight, number_defects, total_pixels, rp
 
