@@ -42,6 +42,7 @@ def dual_threshold_and_max_component(image_path, hue_value=37, hue_delta=10, val
     # 找出最大的连通区域（除了背景）
     max_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])  # 跳过背景
     max_mask = (labels == max_label).astype(np.uint8) * 255
+    cv2.imshow('max_mask', max_mask)
 
     # 使用掩码生成结果图像
     result_image = cv2.bitwise_and(image, image, mask=max_mask)
@@ -66,5 +67,5 @@ def dual_threshold_and_max_component(image_path, hue_value=37, hue_delta=10, val
     plt.show()
 
 # 使用函数
-image_path = '/Users/xs/PycharmProjects/super-tomato/baixiangguo/middle/52.bmp'  # 替换为你的图片路径
+image_path = r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\passion_fruit_img/39.bmp'  # 替换为你的图片路径
 dual_threshold_and_max_component(image_path)

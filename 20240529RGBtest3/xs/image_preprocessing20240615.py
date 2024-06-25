@@ -211,7 +211,7 @@ def extract_max_connected_area(image_path, lower_hsv, upper_hsv):
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--dir_path', type=str, default=r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\qt_test\TO',
+    parser.add_argument('--dir_path', type=str, default=r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\qt_test\TO\TOquexian',
                         help='the directory path of images')
     parser.add_argument('--threshold_s_l', type=int, default=180,
                         help='the threshold for s_l')
@@ -232,6 +232,7 @@ def main():
             cv2.imshow('img_fore_defect2', img_fore_defect)
             thresholded_s_l = threshold_segmentation(s_l, args.threshold_s_l)
             new_bin_img = largest_connected_component(thresholded_s_l)
+            cv2.imshow('new_bin_img', new_bin_img)
             # zhongggggg = cv2.bitwise_or(new_bin_img, cv2.imread('defect_mask.bmp', cv2.IMREAD_GRAYSCALE))
             # cv2.imshow('zhongggggg', zhongggggg)
             new_otsu_bin_img = largest_connected_component(otsu_thresholded)

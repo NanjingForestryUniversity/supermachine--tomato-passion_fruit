@@ -189,19 +189,6 @@ class Tomato:
         cv2.drawContours(original_img, [hull], -1, (0, 255, 0), 3)
         return original_img
 
-    def fill_holes(self, bin_img):
-        '''
-        使用 floodFill 算法填充图像中的孔洞。
-        :param bin_img: 输入的二值图像
-        :return: 填充后的图像
-        '''
-        img_filled = bin_img.copy()
-        height, width = bin_img.shape
-        mask = np.zeros((height + 2, width + 2), np.uint8)
-        cv2.floodFill(img_filled, mask, (0, 0), 255)
-        img_filled_inv = cv2.bitwise_not(img_filled)
-        img_filled = cv2.bitwise_or(bin_img, img_filled_inv)
-        return img_filled
 
     def bitwise_and_rgb_with_binary(self, rgb_img, bin_img):
         '''
@@ -269,6 +256,9 @@ class Passion_fruit:
         return cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
 
     def find_largest_component(self, mask):
+        if mask is None or mask.size == 0 or np.all(mask == 0):
+            logging.warning("RGB 图像为空或全黑，返回一个全黑RGB图像。")
+            return np.zeros((100, 100, 3), dtype=np.uint8) if mask is None else np.zeros_like(mask)
         # 寻找最大连通组件
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
         if num_labels < 2:
@@ -357,8 +347,31 @@ class Spec_predict(object):
 
 #数据处理模型
 class Data_processing:
-    def __init__(self):
+    def __init__(self, area_threshold=20000, density = 0.652228972, area_ratio=0.00021973702422145334):
+        '''
+        :param area_threshold: 排除叶子像素个数阈值
+        :param density: 百香果密度
+        :param area_ratio: 每个像素实际面积(单位cm^2)
+        '''
+        self.area_threshold = area_threshold
+        self.density = density
+        self.area_ratio = area_ratio
         pass
+
+    def fill_holes(self, bin_img):
+        '''
+        对二值图像进行填充孔洞操作。
+        :param bin_img: 输入的二值图像
+        :return: 填充孔洞后的二值图像(纯白背景黑色缺陷区域)和缺陷区域实物图
+        '''
+        img_filled = bin_img.copy()
+        height, width = bin_img.shape
+        mask = np.zeros((height + 2, width + 2), np.uint8)
+        cv2.floodFill(img_filled, mask, (0, 0), 255)
+        img_filled_inv = cv2.bitwise_not(img_filled)
+        img_filled = cv2.bitwise_or(bin_img, img_filled)
+        img_defect = img_filled_inv[:height, :width]
+        return img_filled, img_defect
 
     def contour_process(self, image_array):
         # 检查图像是否为空或全黑
@@ -410,36 +423,78 @@ class Data_processing:
 
         return major_axis, minor_axis
 
-    def analyze_defect(self, image_array):
-        # 查找白色区域的轮廓
-        _, binary_image = cv2.threshold(image_array, 127, 255, cv2.THRESH_BINARY)
-        contours_white, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # def analyze_defect(self, image_array):
+    #     # 查找白色区域的轮廓
+    #     _, binary_image = cv2.threshold(image_array, 127, 255, cv2.THRESH_BINARY)
+    #     contours_white, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    #
+    #     # 初始化统计数据
+    #     count_black_areas = 0
+    #     total_pixels_black_areas = 0
+    #     s = 0.00021973702422145334
+    #
+    #     # 对于每个白色区域，查找内部的黑色小区域
+    #     for contour in contours_white:
+    #         # 创建一个mask以查找内部的黑色区域
+    #         mask = np.zeros_like(image_array)
+    #         cv2.drawContours(mask, [contour], -1, 255, -1)
+    #
+    #         # 仅在白色轮廓内部查找黑色区域
+    #         black_areas_inside = cv2.bitwise_and(cv2.bitwise_not(image_array), mask)
+    #
+    #         # 查找黑色区域的轮廓
+    #         contours_black, _ = cv2.findContours(black_areas_inside, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    #         count_black_areas += len(contours_black)
+    #
+    #         # 计算黑色区域的总像素数
+    #         for c in contours_black:
+    #             total_pixels_black_areas += cv2.contourArea(c)
+    #
+    #     number_defects = count_black_areas
+    #     total_pixels = total_pixels_black_areas * s
+    #     return number_defects, total_pixels
 
-        # 初始化统计数据
-        count_black_areas = 0
-        total_pixels_black_areas = 0
-        s = 0.00021973702422145334
+    # def analyze_defect(self, rgb_image, max_pixels=20000, s = 0.00021973702422145334):
+    #     """
+    #     统计图像中连通域的数量和滤除超大连通域后的总像素数。
+    #     参数:
+    #         rgb_image (numpy.ndarray): 输入的RGB格式图像。
+    #         max_pixels (int): 连通域最大像素阈值，超过此值的连通域不计入总像素数。
+    #         s: 每个像素的实际面积（cm^2)
+    #     返回:
+    #         tuple: (连通域数量, 符合条件的总像素数)
+    #     """
+    #     _, binary_image = cv2.threshold(rgb_image, 127, 255, cv2.THRESH_BINARY)
+    #     # 查找连通域（轮廓）
+    #     contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    #     # 统计连通域个数
+    #     num_defects = len(contours)
+    #     # 计算符合条件的连通域总像素数
+    #     total_pixels = sum(cv2.contourArea(contour) for contour in contours if cv2.contourArea(contour) <= max_pixels)
+    #     total_pixels *= s
+    #     return num_defects, total_pixels
 
-        # 对于每个白色区域，查找内部的黑色小区域
-        for contour in contours_white:
-            # 创建一个mask以查找内部的黑色区域
-            mask = np.zeros_like(image_array)
-            cv2.drawContours(mask, [contour], -1, 255, -1)
+    def analyze_defect(self, image):
+        # 确保传入的图像为单通道numpy数组
+        if len(image.shape) != 2:
+            raise ValueError("Image must be a single-channel numpy array.")
 
-            # 仅在白色轮廓内部查找黑色区域
-            black_areas_inside = cv2.bitwise_and(cv2.bitwise_not(image_array), mask)
+        # 应用阈值将图像转为二值图，目标为255，背景为0
+        _, binary_image = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY_INV)
 
-            # 查找黑色区域的轮廓
-            contours_black, _ = cv2.findContours(black_areas_inside, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            count_black_areas += len(contours_black)
+        # 计算连通域
+        num_labels, labels_im, stats, centroids = cv2.connectedComponentsWithStats(binary_image)
 
-            # 计算黑色区域的总像素数
-            for c in contours_black:
-                total_pixels_black_areas += cv2.contourArea(c)
+        # 移除背景统计信息，假设背景为最大的连通域
+        areas = stats[1:, cv2.CC_STAT_AREA]
+        num_labels -= 1
 
-        number_defects = count_black_areas
-        total_pixels = total_pixels_black_areas * s
-        return number_defects, total_pixels
+        # 过滤面积大于指定阈值的连通域
+        filtered_areas = areas[areas <= self.area_threshold]
+        num_defects = len(filtered_areas)
+        total_areas = np.sum(filtered_areas) * self.area_ratio
+
+        return num_defects, total_areas
 
     def weight_estimates(self, long_axis, short_axis):
         """
@@ -452,11 +507,10 @@ class Data_processing:
         返回:
         float: 估算的西红柿体积
         """
-        density = 0.652228972
         a = ((long_axis / 425) * 6.3) / 2
         b = ((short_axis / 425) * 6.3) / 2
         volume = 4 / 3 * np.pi * a * b * b
-        weight = round(volume * density)
+        weight = round(volume * self.density)
         #重量单位为g
         return weight
     def analyze_tomato(self, img):
@@ -476,6 +530,7 @@ class Data_processing:
         s_l = tomato.extract_s_l(img)
         thresholded_s_l = tomato.threshold_segmentation(s_l, threshold_s_l)
         new_bin_img = tomato.largest_connected_component(thresholded_s_l)
+        filled_img, defect = self.fill_holes(new_bin_img)
         # 绘制西红柿边缘并获取缺陷信息
         edge, mask = tomato.draw_tomato_edge(img, new_bin_img)
         org_defect = tomato.bitwise_and_rgb_with_binary(edge, new_bin_img)
@@ -492,7 +547,10 @@ class Data_processing:
         # 获取西红柿的尺寸信息
         long_axis, short_axis = self.analyze_ellipse(mask)
         # 获取缺陷信息
-        number_defects, total_pixels = self.analyze_defect(new_bin_img)
+        number_defects, total_pixels = self.analyze_defect(filled_img)
+        # print(filled_img.shape)
+        # print(f'缺陷数量：{number_defects}; 缺陷总面积：{total_pixels}')
+        # cv2.imwrite('filled_img.jpg',filled_img)
         # 将处理后的图像转换为 RGB 格式
         rp = cv2.cvtColor(nogreen, cv2.COLOR_BGR2RGB)
         #直径单位为cm，所以需要除以10
@@ -505,7 +563,6 @@ class Data_processing:
             number_defects = 0
             total_pixels = 0
             rp = cv2.cvtColor(np.ones((613, 800, 3), dtype=np.uint8), cv2.COLOR_BGR2RGB)
-            return diameter, green_percentage, number_defects, total_pixels, rp
         return diameter, green_percentage, number_defects, total_pixels, rp
 
     def analyze_passion_fruit(self, img, hue_value=37, hue_delta=10, value_target=25, value_delta=10):
@@ -521,20 +578,32 @@ class Data_processing:
         combined_mask = pf.create_mask(hsv_image)
         combined_mask = pf.apply_morphology(combined_mask)
         max_mask = pf.find_largest_component(combined_mask)
+
+        filled_img, defect = self.fill_holes(max_mask)
+
         contour_mask = self.contour_process(max_mask)
         long_axis, short_axis = self.analyze_ellipse(contour_mask)
         #重量单位为g，加上了一点随机数
-        weight = self.weight_estimates(long_axis, short_axis)
-        weight = (weight * 2) + random.randint(0, 30) - random.randint(0, 30)
+        weight_real = self.weight_estimates(long_axis, short_axis)
+        print(f'真实重量：{weight_real}')
+        weight = (weight_real * 2) + random.randint(0, 30)
+        print(f'估算重量：{weight}')
+        if weight > 255:
+            weight = weight_real
 
-        number_defects, total_pixels = self.analyze_defect(max_mask)
+        number_defects, total_pixels = self.analyze_defect(filled_img)
         edge = pf.draw_contours_on_image(img, contour_mask)
         org_defect = pf.bitwise_and_rgb_with_binary(edge, max_mask)
         rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
         #直径单位为cm，所以需要除以10
         diameter = (long_axis + short_axis) /425 * 63 / 2 / 10
         # print(f'直径：{diameter}')
-
+        if diameter < 2.5:
+            diameter = 0
+            green_percentage = 0
+            number_defects = 0
+            total_pixels = 0
+            rp = cv2.cvtColor(np.ones((613, 800, 3), dtype=np.uint8), cv2.COLOR_BGR2RGB)
         return diameter, weight, number_defects, total_pixels, rp
 
 
