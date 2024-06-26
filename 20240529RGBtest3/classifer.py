@@ -6,7 +6,6 @@
 
 import os
 import cv2
-import json
 import utils
 import joblib
 import logging
@@ -20,7 +19,6 @@ from sklearn.ensemble import RandomForestRegressor
 # import torch
 # import torch.nn as nn
 # from torchvision import transforms
-
 
 #番茄RGB处理模型
 class Tomato:
@@ -708,8 +706,6 @@ class Data_processing:
             response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=gp, diameter=diameter, weight=weight,
                                       defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
             return response
-
-
 
 # #下面封装的是ResNet18和ResNet34的网络模型构建
 # #原定用于构建RGB图像有果无果判断，后续发现存在纰漏，暂时搁置并未实际使用

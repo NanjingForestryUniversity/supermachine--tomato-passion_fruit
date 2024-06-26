@@ -4,8 +4,6 @@
 # @File    : utils.py
 # @Software: PyCharm
 
-
-import shutil
 import os
 import win32file
 import win32pipe
@@ -13,8 +11,6 @@ import time
 import logging
 import numpy as np
 from config import Config as setting
-from PIL import Image
-import io
 
 class Pipe:
     def __init__(self, rgb_receive_name, rgb_send_name, spec_receive_name):
@@ -244,7 +240,6 @@ class Pipe:
         # print(f'发送时间：{end_time - start_time}秒')
         return True
 
-
 def create_file(file_name):
     """
     创建文件
@@ -259,7 +254,6 @@ def create_file(file_name):
         print("文件不存在，创建文件：%s" % file_name)
         open(file_name, 'a').close()
         return True
-
 
 class Logger(object):
     def __init__(self, is_to_file=False, path=None):

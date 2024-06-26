@@ -13,7 +13,6 @@ from PIL import Image
 import numpy as np
 import cv2
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()

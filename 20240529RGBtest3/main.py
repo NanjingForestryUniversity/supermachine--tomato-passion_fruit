@@ -6,16 +6,13 @@
 
 import sys
 import os
-import cv2
 from root_dir import ROOT_DIR
 from classifer import Spec_predict, Data_processing
 # from classifer import ImageClassifier
 import logging
 from utils import Pipe
 import numpy as np
-import time
 from config import Config
-
 
 def main(is_debug=False):
     setting = Config()
@@ -119,7 +116,6 @@ def main(is_debug=False):
         # end_time = time.time()
         # print(f'第{q}组全流程时间：{(end_time - start_time) * 1000}毫秒')
         # q += 1
-
 
 if __name__ == '__main__':
     '''
