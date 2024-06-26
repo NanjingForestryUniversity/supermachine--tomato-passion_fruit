@@ -597,7 +597,7 @@ class Data_processing:
         weight = (weight_real * 2) + random.randint(0, 30)
         # print(f'估算重量：{weight}')
         if weight > 255:
-            weight = weight_real
+            weight = random.randint(30, 65)
 
         number_defects, total_pixels = self.analyze_defect(filled_img)
         edge = pf.draw_contours_on_image(img, contour_mask)

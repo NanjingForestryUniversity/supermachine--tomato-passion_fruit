@@ -90,7 +90,7 @@ class MainWindow(QMainWindow):
                     img_data = img.tobytes()
                     length = (len(img_data) + 6).to_bytes(4, byteorder='big')
                     # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
-                    cmd = 'PF'
+                    cmd = 'TO'
                     data_send = length + cmd.upper().encode('ascii') + height + width + img_data
                     win32file.WriteFile(self.rgb_send, data_send)
                     print(f'发送的图像数据长度: {len(data_send)}')
@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
                     bands = bands.to_bytes(2, byteorder='big')
                     length = (len(spec_data)+8).to_bytes(4, byteorder='big')
                     # cmd = 'TO'：测试番茄数据；cmd = 'PF'：测试百香果数据
-                    cmd = 'PF'
+                    cmd = 'TO'
                     data_send = length + cmd.upper().encode('ascii') + heigth + weight + bands + spec_data
                     win32file.WriteFile(self.spec_send, data_send)
                     print(f'发送的光谱数据长度: {len(data_send)}')
