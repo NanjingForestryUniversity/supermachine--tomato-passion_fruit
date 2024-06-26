@@ -32,14 +32,6 @@ class Config:
     value_target = 25
     value_delta = 10
 
-    #提取绿色像素参数
-    low_H = 0
-    low_S = 100
-    low_V = 0
-    high_H = 60
-    high_S = 180
-    high_V = 60
-
     #spec_predict
     #筛选谱段并未使用，在qt取数据时已经筛选
     selected_bands = [8, 9, 10, 48, 49, 50, 77, 80, 103, 108, 115, 143, 145]

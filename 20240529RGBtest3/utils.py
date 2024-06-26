@@ -209,8 +209,7 @@ class Pipe:
                             defect_num + total_defect_area + height + width + img_bytes)
         elif cmd == 'PF':
             brix = int(brix * 1000).to_bytes(2, byteorder='big')
-            gp = 0
-            gp = gp.to_bytes(1, byteorder='big')
+            gp = int(green_percentage * 100).to_bytes(1, byteorder='big')
             weight = weight.to_bytes(1, byteorder='big')
             send_message = (length + cmd_re + brix + gp + diameter + weight +
                             defect_num + total_defect_area + height + width + img_bytes)

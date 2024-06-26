@@ -317,6 +317,40 @@ class Passion_fruit:
             return np.zeros_like(rgb_img)
         return result
 
+    def extract_green_pixels_cv(self,image):
+        '''
+        提取图像中的绿色像素。
+        :param image:
+        :return:
+        '''
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # Define the HSV range for green
+        lower_green = np.array([setting.low_H, setting.low_S, setting.low_V])
+        upper_green = np.array([setting.high_H, setting.high_S, setting.high_V])
+        # Convert the image to HSV
+        hsv = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2HSV)
+        # Create the mask
+        mask = cv2.inRange(hsv, lower_green, upper_green)
+        # Bitwise-AND mask and original image
+        res = cv2.bitwise_and(image_rgb, image_rgb, mask=mask)
+        # Convert result to BGR for display
+        res_bgr = cv2.cvtColor(res, cv2.COLOR_RGB2BGR)
+        return mask
+
+    def pixel_comparison(self, defect, mask):
+        '''
+        比较两幅图像的像素值，如果相同则赋值为0，不同则赋值为255。
+        :param defect:
+        :param mask:
+        :return:
+        '''
+        # 确保图像是二值图像
+        _, defect_binary = cv2.threshold(defect, 127, 255, cv2.THRESH_BINARY)
+        _, mask_binary = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+        # 执行像素比较
+        green_img = np.where(defect_binary == mask_binary, 0, 255).astype(np.uint8)
+        return green_img
+
 #糖度预测模型
 class Spec_predict(object):
     def __init__(self, load_from=None, debug_mode=False):
@@ -390,35 +424,28 @@ class Data_processing:
             return np.zeros_like(image_array) if image_array is not None else np.zeros((100, 100), dtype=np.uint8)
         # 应用中值滤波
         image_filtered = cv2.medianBlur(image_array, 5)
-
         # 形态学闭操作
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
         image_closed = cv2.morphologyEx(image_filtered, cv2.MORPH_CLOSE, kernel)
-
         # 查找轮廓
         contours, _ = cv2.findContours(image_closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
         # 创建空白图像以绘制轮廓
         image_contours = np.zeros_like(image_array)
-
         # 进行多边形拟合并填充轮廓
         for contour in contours:
             epsilon = 0.001 * cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, epsilon, True)
             if cv2.contourArea(approx) > 100:  # 仅处理较大的轮廓
                 cv2.drawContours(image_contours, [approx], -1, (255, 255, 255), -1)
-
         return image_contours
 
     def analyze_ellipse(self, image_array):
         # 查找白色区域的轮廓
         _, binary_image = cv2.threshold(image_array, 127, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
         # 初始化变量用于存储最大轮廓的长径和短径
         major_axis = 0
         minor_axis = 0
-
         # 对每个找到的轮廓，找出可以包围它的最小椭圆，并计算长径和短径
         for contour in contours:
             if len(contour) >= 5:  # 至少需要5个点来拟合椭圆
@@ -586,10 +613,13 @@ class Data_processing:
         combined_mask = pf.create_mask(hsv_image)
         combined_mask = pf.apply_morphology(combined_mask)
         max_mask = pf.find_largest_component(combined_mask)
-
         filled_img, defect = self.fill_holes(max_mask)
-
         contour_mask = self.contour_process(max_mask)
+        fore = pf.bitwise_and_rgb_with_binary(img, contour_mask)
+        mask = pf.extract_green_pixels_cv(fore)
+        green_img = pf.pixel_comparison(defect, mask)
+        green_percentage = np.sum(green_img == 255) / np.sum(contour_mask == 255)
+        green_percentage = round(green_percentage, 2)
         long_axis, short_axis = self.analyze_ellipse(contour_mask)
         #重量单位为g，加上了一点随机数
         weight_real = self.weight_estimates(long_axis, short_axis)
@@ -608,12 +638,13 @@ class Data_processing:
         # print(f'直径：{diameter}')
         if diameter < 2.5:
             diameter = 0
+            green_percentage = 0
             weight = 0
             number_defects = 0
             total_pixels = 0
             rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
                                       dtype=np.uint8), cv2.COLOR_BGR2RGB)
-        return diameter, weight, number_defects, total_pixels, rp
+        return diameter, green_percentage, weight, number_defects, total_pixels, rp
 
     def process_data(seif, cmd: str, images: list, spec: any, pipe: Pipe, detector: Spec_predict) -> bool:
         """
@@ -644,7 +675,7 @@ class Data_processing:
 
             elif cmd == 'PF':
                 # 百香果
-                diameter, weight, number_defects, total_pixels, rp = seif.analyze_passion_fruit(img)
+                diameter, green_percentage, weight, number_defects, total_pixels, rp = seif.analyze_passion_fruit(img)
                 if i <= 2:
                     diameter_axis_list.append(diameter)
                     max_defect_num = max(max_defect_num, number_defects)
@@ -652,6 +683,7 @@ class Data_processing:
                 if i == 1:
                     rp_result = rp
                     weight = weight
+                    gp = round(green_percentage, 2)
 
             else:
                 logging.error(f'错误指令，指令为{cmd}')
@@ -668,14 +700,12 @@ class Data_processing:
                                       defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
             return response
         elif cmd == 'PF':
-            green_percentage = 0
             brix = detector.predict(spec)
             if diameter == 0:
                 brix = 0
             # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{green_percentage};'
             #       f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
-            response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=green_percentage, diameter=diameter,
-                                      weight=weight,
+            response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=gp, diameter=diameter, weight=weight,
                                       defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
             return response
 
