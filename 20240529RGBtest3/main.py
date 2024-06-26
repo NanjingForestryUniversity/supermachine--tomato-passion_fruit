@@ -18,68 +18,6 @@ import time
 
 
 
-def process_data(cmd: str, images: list, spec: any, dp: Data_processing, pipe: Pipe, detector: Spec_predict) -> bool:
-    """
-    处理指令
-
-    :param cmd: 指令类型
-    :param images: 图像数据列表
-    :param spec: 光谱数据
-    :param detector: 模型
-    :return: 是否处理成功
-    """
-    diameter_axis_list = []
-    max_defect_num = 0  # 初始化最大缺陷数量为0
-    max_total_defect_area = 0  # 初始化最大总像素数为0
-
-    for i, img in enumerate(images):
-        if cmd == 'TO':
-            # 番茄
-            diameter, green_percentage, number_defects, total_pixels, rp = dp.analyze_tomato(img)
-            if i <= 2:
-                diameter_axis_list.append(diameter)
-                max_defect_num = max(max_defect_num, number_defects)
-                max_total_defect_area = max(max_total_defect_area, total_pixels)
-            if i == 1:
-                rp_result = rp
-                gp = round(green_percentage, 2)
-
-        elif cmd == 'PF':
-            # 百香果
-            diameter, weight, number_defects, total_pixels, rp = dp.analyze_passion_fruit(img)
-            if i <= 2:
-                diameter_axis_list.append(diameter)
-                max_defect_num = max(max_defect_num, number_defects)
-                max_total_defect_area = max(max_total_defect_area, total_pixels)
-            if i == 1:
-                rp_result = rp
-                weight = weight
-
-        else:
-            logging.error(f'错误指令，指令为{cmd}')
-            return False
-
-    diameter = round(sum(diameter_axis_list) / 3, 2)
-
-    if cmd == 'TO':
-        brix = 0
-        weight = 0
-        # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{gp};'
-        #       f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
-        response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, green_percentage=gp, weight=weight,
-                                  defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
-        return response
-    elif cmd == 'PF':
-        green_percentage = 0
-        brix = detector.predict(spec)
-        if diameter == 0:
-            brix = 0
-        # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{green_percentage};'
-        #       f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
-        response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=green_percentage, diameter=diameter, weight=weight,
-                                  defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
-        return response
-
 def main(is_debug=False):
     file_handler = logging.FileHandler(os.path.join(ROOT_DIR, 'tomato.log'), encoding='utf-8')
     file_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)
@@ -165,8 +103,8 @@ def main(is_debug=False):
         #数据处理部分
         # start_time3 = time.time()
         if images:  # 确保images不为空
-            response = process_data(cmd, images, spec, dp, pipe, detector)
-            end_time3 = time.time()
+            response = dp.process_data(cmd, images, spec, pipe, detector)
+            # end_time3 = time.time()
             # print(f'第{q}组处理时间：{(end_time3 - start_time3) * 1000}毫秒')
             if response:
                 logging.info(f'处理成功，响应为: {response}')

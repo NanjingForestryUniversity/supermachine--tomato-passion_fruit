@@ -13,6 +13,7 @@ import logging
 import random
 import numpy as np
 from PIL import Image
+from utils import Pipe
 from sklearn.ensemble import RandomForestRegressor
 #图像分类网络所需库，实际并未使用分类网络
 # import torch
@@ -585,9 +586,9 @@ class Data_processing:
         long_axis, short_axis = self.analyze_ellipse(contour_mask)
         #重量单位为g，加上了一点随机数
         weight_real = self.weight_estimates(long_axis, short_axis)
-        print(f'真实重量：{weight_real}')
+        # print(f'真实重量：{weight_real}')
         weight = (weight_real * 2) + random.randint(0, 30)
-        print(f'估算重量：{weight}')
+        # print(f'估算重量：{weight}')
         if weight > 255:
             weight = weight_real
 
@@ -605,6 +606,71 @@ class Data_processing:
             total_pixels = 0
             rp = cv2.cvtColor(np.ones((613, 800, 3), dtype=np.uint8), cv2.COLOR_BGR2RGB)
         return diameter, weight, number_defects, total_pixels, rp
+
+    def process_data(seif, cmd: str, images: list, spec: any, pipe: Pipe, detector: Spec_predict) -> bool:
+        """
+        处理指令
+
+        :param cmd: 指令类型
+        :param images: 图像数据列表
+        :param spec: 光谱数据
+        :param detector: 模型
+        :return: 是否处理成功
+        """
+        # pipe = Pipe()
+        diameter_axis_list = []
+        max_defect_num = 0  # 初始化最大缺陷数量为0
+        max_total_defect_area = 0  # 初始化最大总像素数为0
+
+        for i, img in enumerate(images):
+            if cmd == 'TO':
+                # 番茄
+                diameter, green_percentage, number_defects, total_pixels, rp = seif.analyze_tomato(img)
+                if i <= 2:
+                    diameter_axis_list.append(diameter)
+                    max_defect_num = max(max_defect_num, number_defects)
+                    max_total_defect_area = max(max_total_defect_area, total_pixels)
+                if i == 1:
+                    rp_result = rp
+                    gp = round(green_percentage, 2)
+
+            elif cmd == 'PF':
+                # 百香果
+                diameter, weight, number_defects, total_pixels, rp = seif.analyze_passion_fruit(img)
+                if i <= 2:
+                    diameter_axis_list.append(diameter)
+                    max_defect_num = max(max_defect_num, number_defects)
+                    max_total_defect_area = max(max_total_defect_area, total_pixels)
+                if i == 1:
+                    rp_result = rp
+                    weight = weight
+
+            else:
+                logging.error(f'错误指令，指令为{cmd}')
+                return False
+
+        diameter = round(sum(diameter_axis_list) / 3, 2)
+
+        if cmd == 'TO':
+            brix = 0
+            weight = 0
+            # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{gp};'
+            #       f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
+            response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, green_percentage=gp, weight=weight,
+                                      defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
+            return response
+        elif cmd == 'PF':
+            green_percentage = 0
+            brix = detector.predict(spec)
+            if diameter == 0:
+                brix = 0
+            # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{green_percentage};'
+            #       f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
+            response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=green_percentage, diameter=diameter,
+                                      weight=weight,
+                                      defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
+            return response
+
 
 
 # #下面封装的是ResNet18和ResNet34的网络模型构建

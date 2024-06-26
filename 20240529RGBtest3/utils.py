@@ -241,9 +241,6 @@ class Pipe:
         return True
 
 
-
-
-
 def create_file(file_name):
     """
     创建文件
