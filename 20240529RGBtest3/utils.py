@@ -12,6 +12,7 @@ import win32pipe
 import time
 import logging
 import numpy as np
+from config import Config as setting
 from PIL import Image
 import io
 
@@ -204,13 +205,15 @@ class Pipe:
             gp = int(green_percentage * 100).to_bytes(1, byteorder='big')
             weight = 0
             weight = weight.to_bytes(1, byteorder='big')
-            send_message = length + cmd_re + brix + gp + diameter + weight + defect_num + total_defect_area + height + width + img_bytes
+            send_message = (length + cmd_re + brix + gp + diameter + weight +
+                            defect_num + total_defect_area + height + width + img_bytes)
         elif cmd == 'PF':
             brix = int(brix * 1000).to_bytes(2, byteorder='big')
             gp = 0
             gp = gp.to_bytes(1, byteorder='big')
             weight = weight.to_bytes(1, byteorder='big')
-            send_message = length + cmd_re + brix + gp + diameter + weight + defect_num + total_defect_area + height + width + img_bytes
+            send_message = (length + cmd_re + brix + gp + diameter + weight +
+                            defect_num + total_defect_area + height + width + img_bytes)
         elif cmd == 'KO':
             brix = 0
             brix = brix.to_bytes(2, byteorder='big')
@@ -222,13 +225,15 @@ class Pipe:
             defect_num = defect_num.to_bytes(2, byteorder='big')
             total_defect_area = 0
             total_defect_area = total_defect_area.to_bytes(4, byteorder='big')
-            height = 100
+            height = setting.n_rgb_rows
             height = height.to_bytes(2, byteorder='big')
-            width = 100
+            width = setting.n_rgb_cols
             width = width.to_bytes(2, byteorder='big')
-            img_bytes = np.zeros((100, 100, 3), dtype=np.uint8).tobytes()
+            img_bytes = np.zeros((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
+                                 dtype=np.uint8).tobytes()
             length = (18).to_bytes(4, byteorder='big')
-            send_message = length + cmd_re + brix + gp + diameter + weight + defect_num + total_defect_area + height + width + img_bytes
+            send_message = (length + cmd_re + brix + gp + diameter + weight +
+                            defect_num + total_defect_area + height + width + img_bytes)
         try:
             win32file.WriteFile(self.rgb_send, send_message)
             # time.sleep(0.01)

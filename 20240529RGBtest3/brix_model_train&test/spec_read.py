@@ -1,7 +1,6 @@
-import joblib
 import numpy as np
 import os
-from dimensionality_reduction import prepare_data
+
 
 def read_spectral_data(hdr_path, raw_path):
     # Read HDR file for image dimensions information
@@ -50,38 +49,22 @@ def read_spectral_data(hdr_path, raw_path):
 
     return formatImage
 
-def load_model(model_path):
-    """加载模型"""
-    return joblib.load(model_path)
 
-def predict(model, data):
-    """预测数据"""
-    return model.predict(data)
+# Specify the directory containing the HDR and RAW files
+directory = r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\xs\光谱数据3030'
 
-def main():
-    # 加载模型
-    model = load_model(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\models\passion_fruit_3.joblib')
+# Initialize a list to hold all the spectral data arrays
+all_spectral_data = []
 
-    # 读取数据
-    directory = r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\xs\光谱数据3030'
-    all_spectral_data = []
-    for i in range(1, 101):
-        hdr_path = os.path.join(directory, f'{i}.HDR')
-        raw_path = os.path.join(directory, f'{i}')
-        spectral_data = read_spectral_data(hdr_path, raw_path)
-        all_spectral_data.append(spectral_data)
-    all_spectral_data = np.stack(all_spectral_data)
-    print(all_spectral_data.shape)
+# Loop through each data set (assuming there are 40 datasets)
+for i in range(1, 101):
+    hdr_path = os.path.join(directory, f'{i}.HDR')
+    raw_path = os.path.join(directory, f'{i}')
 
-    # 预处理数据
-    data_prepared = prepare_data(all_spectral_data)
-    print(data_prepared.shape)
+    # Read data
+    spectral_data = read_spectral_data(hdr_path, raw_path)
+    all_spectral_data.append(spectral_data)
 
-    # 预测数据
-    predictions = predict(model, data_prepared)
-
-    # 打印预测结果
-    print(predictions)
-
-if __name__ == "__main__":
-    main()
+# Stack all data into a single numpy array
+all_spectral_data = np.stack(all_spectral_data)
+print(all_spectral_data.shape)  # This should print (40, 30, 30, 224)

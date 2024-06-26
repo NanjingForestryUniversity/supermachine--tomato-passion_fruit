@@ -14,11 +14,11 @@ import logging
 from utils import Pipe
 import numpy as np
 import time
-
-
+from config import Config
 
 
 def main(is_debug=False):
+    setting = Config()
     file_handler = logging.FileHandler(os.path.join(ROOT_DIR, 'tomato.log'), encoding='utf-8')
     file_handler.setLevel(logging.DEBUG if is_debug else logging.WARNING)
     console_handler = logging.StreamHandler(sys.stdout)
@@ -27,15 +27,18 @@ def main(is_debug=False):
                         handlers=[file_handler, console_handler],
                         level=logging.DEBUG)
     #模型加载
-    detector = Spec_predict(ROOT_DIR/'models'/'passion_fruit_2.joblib')
-    # classifier = ImageClassifier(ROOT_DIR/'models'/'resnet34_0619.pth', ROOT_DIR/'models'/'class_indices.json')
+    detector = Spec_predict()
+    detector.load(path=setting.brix_model_path)
+    # classifier = ImageClassifier(model_path=setting.imgclassifier_model_path,
+    #                              class_indices_path=setting.imgclassifier_class_indices_path)
     dp = Data_processing()
     print('系统初始化中...')
     #模型预热
-    _ = detector.predict(np.ones((30, 30, 224), dtype=np.uint16))
-    # _ = classifier.predict(np.ones((224, 224, 3), dtype=np.uint8))
-    # _, _, _, _, _ =dp.analyze_tomato(cv2.imread(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\tomato_img\bad\71.bmp'))
-    # _, _, _, _, _ = dp.analyze_passion_fruit(cv2.imread(r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\passion_fruit_img\38.bmp'))
+    #与qt_test测试时需要注释掉预热，模型接收尺寸为（25，30，13），qt_test发送的数据为（30，30，224），需要对数据进行切片（classifer.py第352行）
+    _ = detector.predict(np.ones((setting.n_spec_rows, setting.n_spec_cols, setting.n_spec_bands), dtype=np.uint16))
+    # _ = classifier.predict(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands), dtype=np.uint8))
+    # _, _, _, _, _ =dp.analyze_tomato(cv2.imread(str(setting.tomato_img_dir)))
+    # _, _, _, _, _ = dp.analyze_passion_fruit(cv2.imread(str(setting.passion_fruit_img_dir))
     print('系统初始化完成')
 
     rgb_receive_name = r'\\.\pipe\rgb_receive'

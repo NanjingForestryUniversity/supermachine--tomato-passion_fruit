@@ -1,7 +1,7 @@
 import joblib
 import numpy as np
 import os
-from dimensionality_reduction import prepare_data
+from model_train import prepare_data
 
 def read_spectral_data(hdr_path, raw_path):
     # Read HDR file for image dimensions information

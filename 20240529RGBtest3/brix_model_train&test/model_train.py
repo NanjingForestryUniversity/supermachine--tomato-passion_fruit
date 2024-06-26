@@ -3,25 +3,19 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from spec_read import all_spectral_data
 import joblib
 
-# def prepare_data(data):
-#     """Reshape data and select specified spectral bands."""
-#     reshaped_data = data.reshape(100, -1)
-#     selected_bands = [8, 9, 10, 48, 49, 50, 77, 80, 103, 108, 115, 143, 145]
-#     return reshaped_data[:, selected_bands]
 
 def prepare_data(data):
     """Reshape data and select specified spectral bands."""
     selected_bands = [8, 9, 10, 48, 49, 50, 77, 80, 103, 108, 115, 143, 145]
     # 筛选特定的波段
-    data_selected = data[:, :25, :, selected_bands]
-    print(f'筛选后的数据尺寸：{data_selected.shape}')
+    data_selected = data[:, :, :, selected_bands]
     # 将筛选后的数据重塑为二维数组，每行代表一个样本
-    reshaped_data = data_selected.reshape(-1, 25 * 30 * len(selected_bands))
+    reshaped_data = data_selected.reshape(-1, 30 * 30 * len(selected_bands))
     return reshaped_data
 
 
@@ -62,25 +56,55 @@ def main():
     print(f'原数据尺寸：{all_spectral_data.shape};训练数据尺寸：{X.shape}')
     X_train, X_test, y_train, y_test = split_data(X, sweetness_acidity)
 
-    models = {
-        "RandomForest": RandomForestRegressor(n_estimators=100),
-        "GradientBoosting": GradientBoostingRegressor(n_estimators=100),
-        "SVR": SVR(kernel='rbf', C=100, gamma=0.1, epsilon=.1),
+    models_params = {
+        "RandomForest": {
+            'model': RandomForestRegressor(),
+            'params': {
+                'n_estimators': [100, 200, 300],
+                'max_depth': [None, 10, 20],
+                'min_samples_split': [2, 5],
+                'min_samples_leaf': [1, 2],
+                'random_state': [42]
+            }
+        },
+        "GradientBoosting": {
+            'model': GradientBoostingRegressor(),
+            'params': {
+                'n_estimators': [100, 200, 300],
+                'learning_rate': [0.01, 0.1, 0.2],
+                'max_depth': [3, 5, 7],
+                'min_samples_split': [2, 5],
+                'min_samples_leaf': [1, 2],
+                'random_state': [42]
+            }
+        },
+        "SVR": {
+            'model': SVR(),
+            'params': {
+                'C': [0.1, 1, 10, 100],
+                'gamma': ['scale', 'auto', 0.01, 0.1],
+                'epsilon': [0.01, 0.1, 0.5]
+            }
+        }
     }
 
-    for model_name, model in models.items():
-        model.fit(X_train, y_train)
-        if model_name == "RandomForest":
-            joblib.dump(model,
-                        r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\models\passion_fruit.joblib')
+    best_models = {}
 
-        mse, mae, r2, y_pred = evaluate_model(model, X_test, y_test)
+    for model_name, mp in models_params.items():
+        grid_search = GridSearchCV(mp['model'], mp['params'], cv=5, scoring='r2', verbose=2)
+        grid_search.fit(X_train, y_train)
+        best_models[model_name] = grid_search.best_estimator_
+        mse, mae, r2, y_pred = evaluate_model(grid_search.best_estimator_, X_test, y_test)
+        print(f"Best {model_name} parameters: {grid_search.best_params_}")
         print(f"Model: {model_name}")
         print(f"MSE on the test set: {mse}")
         print(f"MAE on the test set: {mae}")
         print(f"R² score on the test set: {r2}")
         print_predictions(y_test, y_pred, model_name)
         print("\n" + "-" * 50 + "\n")
+
+        # Optionally save the best model for each type
+        joblib.dump(grid_search.best_estimator_, f'{model_name}_best_model.joblib')
 
 
 if __name__ == "__main__":
