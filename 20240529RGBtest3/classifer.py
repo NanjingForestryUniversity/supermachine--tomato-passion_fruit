@@ -382,7 +382,7 @@ class Spec_predict(object):
         '''
         # 对数据进行切片，筛选谱段
         #qt_test进行测试时如果读取的是（30，30，224）需要解开注释进行数据切片，筛选谱段
-        data_x = data_x[ :25, :, setting.selected_bands ]
+        # data_x = data_x[ :25, :, setting.selected_bands ]
         # 将筛选后的数据重塑为二维数组，每行代表一个样本
         data_x = data_x.reshape(-1, setting.n_spec_rows * setting.n_spec_cols * setting.n_spec_bands)
         data_y = self.model.predict(data_x)
