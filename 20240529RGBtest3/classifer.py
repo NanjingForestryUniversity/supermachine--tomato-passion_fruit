@@ -373,6 +373,7 @@ class Spec_predict(object):
             self.model = model_dic
             self.log.log(f'Model loaded successfully from {path}')
 
+
     def predict(self, data_x):
         '''
         预测数据
@@ -381,7 +382,7 @@ class Spec_predict(object):
         '''
         # 对数据进行切片，筛选谱段
         #qt_test进行测试时如果读取的是（30，30，224）需要解开注释进行数据切片，筛选谱段
-        # data_x = data_x[ :25, :, setting.selected_bands ]
+        data_x = data_x[ :25, :, setting.selected_bands ]
         # 将筛选后的数据重塑为二维数组，每行代表一个样本
         data_x = data_x.reshape(-1, setting.n_spec_rows * setting.n_spec_cols * setting.n_spec_bands)
         data_y = self.model.predict(data_x)
@@ -574,8 +575,11 @@ class Data_processing:
         # print(np.sum(fore_g_r_t == 255))
         # print(np.sum(mask == 255))
         # print(np.sum(fore_g_r_t == 255) / np.sum(mask == 255))
-        green_percentage = np.sum(fore_g_r_t == 255) / np.sum(mask == 255)
-        green_percentage = round(green_percentage, 2)
+        if np.sum(mask == 255) == 0:
+            green_percentage = 0
+        else:
+            green_percentage = np.sum(fore_g_r_t == 255) / np.sum(mask == 255)
+            green_percentage = round(green_percentage, 2)
         # 获取西红柿的尺寸信息
         long_axis, short_axis = self.analyze_ellipse(mask)
         # 获取缺陷信息
@@ -616,8 +620,11 @@ class Data_processing:
         fore = pf.bitwise_and_rgb_with_binary(img, contour_mask)
         mask = pf.extract_green_pixels_cv(fore)
         green_img = pf.pixel_comparison(defect, mask)
-        green_percentage = np.sum(green_img == 255) / np.sum(contour_mask == 255)
-        green_percentage = round(green_percentage, 2)
+        if np.sum(contour_mask == 255) == 0:
+            green_percentage = 0
+        else:
+            green_percentage = np.sum(green_img == 255) / np.sum(contour_mask == 255)
+            green_percentage = round(green_percentage, 2)
         long_axis, short_axis = self.analyze_ellipse(contour_mask)
         #重量单位为g，加上了一点随机数
         weight_real = self.weight_estimates(long_axis, short_axis)
