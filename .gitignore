@@ -90,3 +90,8 @@ fabric.properties
 !/20240410RGBtest1/super-tomato/defect_mask.bmp
 !/20240410RGBtest1/super-tomato/prediction.png
 /20240529RGBtest3/data/
+/20240627Actual_deployed/.idea/
+/20240627Actual_deployed/qt_test/
+/20240627Actual_deployed/封装exe/
+/20240627Actual_deployed/qt_test/
+/20240627Actual_deployed/qt_test/PF/
