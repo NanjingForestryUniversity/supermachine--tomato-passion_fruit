@@ -69,8 +69,8 @@ class MainWindow(QMainWindow):
         :param image_dir: bmp和raw文件所在文件夹
         :return:
         '''
-        rgb_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith(('.bmp'))][:5]
-        spec_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.raw')][:1]
+        rgb_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith(('.bmp'))][:20]
+        spec_files = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.endswith('.raw')][:5]
 
         self.send_YR()
         for _ in range(5):

@@ -6,6 +6,9 @@
 
 import sys
 import os
+
+import cv2
+
 from root_dir import ROOT_DIR
 from classifer import Spec_predict, Data_processing
 # from classifer import ImageClassifier
@@ -54,13 +57,15 @@ def main(is_debug=False):
         if cmd == 'YR':
             break
     #主循环
-    # q = 1
+    q = 1
     while True:
         #RGB图像部分
         # start_time = time.time()
         images = []
         cmd = None
-        for _ in range(5):
+        #三个相机产生5张图，qt发送方顺序为上方相机3张，左右相机各1张
+        #实际使用时，并未对最后两张两侧相机所得结果进行统计，因此也可改为3（qt发送方顺序为上方相机3张）
+        for i in range(5):
             # start_time1 = time.time()
             data = pipe.receive_rgb_data(rgb_receive)
             # end_time10 = time.time()
@@ -68,6 +73,11 @@ def main(is_debug=False):
 
             # start_time11 = time.time()
             cmd, img = pipe.parse_img(data)
+            #接收到的图像保存本地
+            # img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            # # cv2.imwrite(f'./{q}_{i}.bmp', img)
+            # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
             # end_time1 = time.time()
             # print(f'解析第{q}组第{i}份RGB数据时间：{(end_time1 - start_time11) * 1000}毫秒')
             # print(f'接收第{q}组第{i}张RGB图时间：{(end_time1 - start_time1) * 1000}毫秒')
@@ -115,7 +125,7 @@ def main(is_debug=False):
 
         # end_time = time.time()
         # print(f'第{q}组全流程时间：{(end_time - start_time) * 1000}毫秒')
-        # q += 1
+        q += 1
 
 if __name__ == '__main__':
     '''

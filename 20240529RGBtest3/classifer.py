@@ -590,16 +590,19 @@ class Data_processing:
         # 将处理后的图像转换为 RGB 格式
         rp = cv2.cvtColor(nogreen, cv2.COLOR_BGR2RGB)
         #直径单位为cm
-        diameter = (long_axis + short_axis) * setting.pixel_length_ratio / 2
+        # diameter = (long_axis + short_axis) * setting.pixel_length_ratio / 2
+        #20240628与何工确定直径以长径为准
+        diameter = long_axis * setting.pixel_length_ratio
         # print(f'直径：{diameter}')
-        # 如果直径小于3，判断为空果拖异常图，则将所有值重置为0
-        if diameter < 2.5:
-            diameter = 0
-            green_percentage = 0
-            number_defects = 0
-            total_pixels = 0
-            rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
-                                      dtype=np.uint8), cv2.COLOR_BGR2RGB)
+        ###异常判断改为发送结果前进行判断
+        # # 如果直径小于3，判断为空果拖异常图，则将所有值重置为0
+        # if diameter < 2.5:
+        #     diameter = 0
+        #     green_percentage = 0
+        #     number_defects = 0
+        #     total_pixels = 0
+        #     rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
+        #                               dtype=np.uint8), cv2.COLOR_BGR2RGB)
         return diameter, green_percentage, number_defects, total_pixels, rp
 
     def analyze_passion_fruit(self, img):
@@ -639,16 +642,17 @@ class Data_processing:
         org_defect = pf.bitwise_and_rgb_with_binary(edge, max_mask)
         rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
         #直径单位为cm
-        diameter = (long_axis + short_axis) * setting.pixel_length_ratio / 2
+        # diameter = (long_axis + short_axis) * setting.pixel_length_ratio / 2
+        diameter = long_axis * setting.pixel_length_ratio
         # print(f'直径：{diameter}')
-        if diameter < 2.5:
-            diameter = 0
-            green_percentage = 0
-            weight = 0
-            number_defects = 0
-            total_pixels = 0
-            rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
-                                      dtype=np.uint8), cv2.COLOR_BGR2RGB)
+        # if diameter < 2.5:
+        #     diameter = 0
+        #     green_percentage = 0
+        #     weight = 0
+        #     number_defects = 0
+        #     total_pixels = 0
+        #     rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
+        #                               dtype=np.uint8), cv2.COLOR_BGR2RGB)
         return diameter, green_percentage, weight, number_defects, total_pixels, rp
 
     def process_data(seif, cmd: str, images: list, spec: any, pipe: Pipe, detector: Spec_predict) -> bool:
@@ -699,6 +703,14 @@ class Data_processing:
         if cmd == 'TO':
             brix = 0
             weight = 0
+            # 如果直径小于3，判断为空果拖异常图，则将所有值重置为0
+            if diameter < 3:
+                diameter = 0
+                gp = 0
+                max_defect_num = 0
+                max_total_defect_area = 0
+                rp_result = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
+                                          dtype=np.uint8), cv2.COLOR_BGR2RGB)
             # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{gp};'
             #       f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
             response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, green_percentage=gp, weight=weight,
@@ -706,8 +718,16 @@ class Data_processing:
             return response
         elif cmd == 'PF':
             brix = detector.predict(spec)
-            if diameter == 0:
+            # 如果直径小于2.5，判断为空果拖异常图，则将所有值重置为0
+            if diameter < 2.5:
                 brix = 0
+                diameter = 0
+                gp= 0
+                weight = 0
+                max_defect_num = 0
+                max_total_defect_area = 0
+                rp_result = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
+                                          dtype=np.uint8), cv2.COLOR_BGR2RGB)
             # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{green_percentage};'
             #       f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
             response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=gp, diameter=diameter, weight=weight,

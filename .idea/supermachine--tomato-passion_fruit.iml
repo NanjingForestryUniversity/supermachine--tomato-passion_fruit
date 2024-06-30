@@ -3,6 +3,29 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/.idea/copilot/chatSessions" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/data_pyc" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/cv2/gapi" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/cv2/mat_wrapper" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/cv2/misc" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/cv2/utils" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/numpy/.libs" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/numpy/fft" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/scipy/_lib/_uarray" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/scipy/fft" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/scipy/ndimage" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/scipy/optimize/_highs" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/scipy/sparse/linalg/_eigen" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/scipy/spatial/transform" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/scipy/stats/_levy_stable" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/scipy/stats/_unuran" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/sklearn/_loss" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/sklearn/datasets/tests/data/openml/id_40945" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main0带资源文件/_internal/sklearn/preprocessing" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main1不带资源文件夹使用原始py文件" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main3不带资源文件夹使用pyc文件，修改log不报空果托错误信息，换图标" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main4设置与main3一致，去掉了resnet权重" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main5与main1一致，py文件使用20240529RGBtest3的main" />
+      <excludeFolder url="file://$MODULE_DIR$/20240627Actual_deployed/封装exe/result/main6不带资源文件夹，py文件使用20240529RGBtest3，配置文件加载的是生成的pyc文件" />
     </content>
     <orderEntry type="jdk" jdkName="tengg" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
