@@ -17,7 +17,7 @@ class Config:
     #糖度模型
     brix_model_path = ROOT_DIR / 'models' / 'passion_fruit.joblib'
     #图像分类模型
-    imgclassifier_model_path = ROOT_DIR / 'models' / 'imgclassifier.joblib'
+    imgclassifier_model_path = ROOT_DIR / 'models' / 'resnet18pf.pth'
     imgclassifier_class_indices_path = ROOT_DIR / 'models' / 'class_indices.json'
 
 

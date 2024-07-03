@@ -6,13 +6,18 @@
 
 import sys
 import os
+
+import cv2
+
 from root_dir import ROOT_DIR
-from classifer import Spec_predict, Data_processing
+from classifer import Spec_predict, Data_processing, ImageClassifier
 import logging
-from utils import Pipe
+from pipe_utils import Pipe
 import numpy as np
 from config import Config
 import time
+from detector import run
+# from clspredict import runcls
 
 def main(is_debug=False):
     setting = Config()
@@ -27,10 +32,14 @@ def main(is_debug=False):
     detector = Spec_predict()
     detector.load(path=setting.brix_model_path)
     dp = Data_processing()
+    impf = ImageClassifier(model_path=setting.imgclassifier_model_path,
+                                 class_indices_path=setting.imgclassifier_class_indices_path)
     print('系统初始化中...')
     #模型预热
     #与qt_test测试时需要注释掉预热，模型接收尺寸为（25，30，13），qt_test发送的数据为（30，30，224），需要对数据进行切片（classifer.py第379行）
     _ = detector.predict(np.ones((setting.n_spec_rows, setting.n_spec_cols, setting.n_spec_bands), dtype=np.uint16))
+    _ = impf.predict(np.ones((800, 613, 3), dtype=np.uint8))
+
     time.sleep(1)
     print('系统初始化完成')
 
@@ -46,19 +55,33 @@ def main(is_debug=False):
         cmd, _ = pipe.parse_img(data)
         if cmd == 'YR':
             break
+    print('预热成功')
     #主循环
     q = 1
     while True:
+        # st = time.time()
         #RGB图像部分
         images = []
         cmd = None
-        for _ in range(5):
+        for i in range(3):
+            # start_time = time.time()
             data = pipe.receive_rgb_data(rgb_receive)
+            # end_time = time.time()
+            # print(f'接收第{q}个果子第{i+1}张图数据时间：{end_time-start_time}')
+            print(f'接收第{q}个果子第{i+1}张图数据长度：{len(data)}')
             cmd, img = pipe.parse_img(data)
+            # end_time1 = time.time()
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            # print(f'解码第{q}个果子第{i + 1}张图数据时间：{end_time1 - end_time}')
+            print(f'接收第{q}个果子第{i+1}张图：{img.shape}')
+            # cv2.imwrite(f'./{q}_{i}.png', img)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
             #默认全为有果
             prediction = 1
             if prediction == 1:
                 images.append(img)
+
             else:
                 response = pipe.send_data(cmd='KO', brix=0, diameter=0, green_percentage=0, weigth=0, defect_num=0,
                                            total_defect_area=0, rp=np.zeros((100, 100, 3), dtype=np.uint8))
@@ -72,7 +95,9 @@ def main(is_debug=False):
         spec = None
         if cmd == 'PF':
             spec_data = pipe.receive_spec_data(spec_receive)
+            print(f'接收到第{q}个果子的光谱数据长度：{len(spec_data)}')
             _, spec = pipe.parse_spec(spec_data)
+            print(f'接收到第{q}个果子的光谱数据尺寸：{spec.shape}')
         #数据处理部分
         if images:  # 确保images不为空
             response = dp.process_data(cmd, images, spec, pipe, detector)
@@ -84,6 +109,8 @@ def main(is_debug=False):
             logging.error("没有有效的图像进行处理")
         print(f'第{q}个果子处理完成')
         q += 1
+        # end_time2 = time.time()
+        # print(f'第{q}个果子全流程时间：{end_time2-st}')
 
 
 if __name__ == '__main__':

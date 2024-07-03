@@ -6,14 +6,21 @@
 
 import os
 import cv2
-import utils
+import pipe_utils
 import joblib
 import logging
 import random
 import numpy as np
-from utils import Pipe
+from pipe_utils import Pipe
 from config import Config as setting
 from sklearn.ensemble import RandomForestRegressor
+from detector import run
+
+import torch
+import torch.nn as nn
+from torchvision import transforms
+import json
+from PIL import Image
 
 #番茄RGB处理模型
 class Tomato:
@@ -348,7 +355,7 @@ class Passion_fruit:
 class Spec_predict(object):
     def __init__(self, load_from=None, debug_mode=False):
         self.debug_mode = debug_mode
-        self.log = utils.Logger(is_to_file=debug_mode)
+        self.log = pipe_utils.Logger(is_to_file=debug_mode)
         if load_from is not None:
             self.load(load_from)
         else:
@@ -533,16 +540,17 @@ class Data_processing:
         # 将处理后的图像转换为 RGB 格式
         rp = cv2.cvtColor(nogreen, cv2.COLOR_BGR2RGB)
         #直径单位为cm
-        diameter = (long_axis + short_axis) * setting.pixel_length_ratio / 2
+        # diameter = (long_axis + short_axis) * setting.pixel_length_ratio / 2
+        diameter = long_axis * setting.pixel_length_ratio
         # print(f'直径：{diameter}')
         # 如果直径小于3，判断为空果拖异常图，则将所有值重置为0
-        if diameter < 2.5:
-            diameter = 0
-            green_percentage = 0
-            number_defects = 0
-            total_pixels = 0
-            rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
-                                      dtype=np.uint8), cv2.COLOR_BGR2RGB)
+        # if diameter < 2.5:
+        #     diameter = 0
+        #     green_percentage = 0
+        #     number_defects = 0
+        #     total_pixels = 0
+        #     rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
+        #                               dtype=np.uint8), cv2.COLOR_BGR2RGB)
         return diameter, green_percentage, number_defects, total_pixels, rp
 
     def analyze_passion_fruit(self, img):
@@ -578,20 +586,22 @@ class Data_processing:
             weight = random.randint(30, 65)
 
         number_defects, total_pixels = self.analyze_defect(filled_img)
+        # img1 = img.copy()
         edge = pf.draw_contours_on_image(img, contour_mask)
         org_defect = pf.bitwise_and_rgb_with_binary(edge, max_mask)
         rp = cv2.cvtColor(org_defect, cv2.COLOR_BGR2RGB)
         #直径单位为cm
-        diameter = (long_axis + short_axis) * setting.pixel_length_ratio / 2
-        # print(f'直径：{diameter}')
-        if diameter < 2.5:
-            diameter = 0
-            green_percentage = 0
-            weight = 0
-            number_defects = 0
-            total_pixels = 0
-            rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
-                                      dtype=np.uint8), cv2.COLOR_BGR2RGB)
+        # diameter = (long_axis + short_axis) * setting.pixel_length_ratio / 2
+        diameter = long_axis * setting.pixel_length_ratio
+        print(f'长径：{long_axis}像素；短径：{short_axis}像素；直径：{diameter}cm')
+        # if diameter < 2.5:
+        #     diameter = 0
+        #     green_percentage = 0
+        #     weight = 0
+        #     number_defects = 0
+        #     total_pixels = 0
+        #     rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
+        #                               dtype=np.uint8), cv2.COLOR_BGR2RGB)
         return diameter, green_percentage, weight, number_defects, total_pixels, rp
 
     def process_data(seif, cmd: str, images: list, spec: any, pipe: Pipe, detector: Spec_predict) -> bool:
@@ -608,18 +618,23 @@ class Data_processing:
         diameter_axis_list = []
         max_defect_num = 0  # 初始化最大缺陷数量为0
         max_total_defect_area = 0  # 初始化最大总像素数为0
+        ps = []
 
         for i, img in enumerate(images):
             if cmd == 'TO':
                 # 番茄
                 diameter, green_percentage, number_defects, total_pixels, rp = seif.analyze_tomato(img)
+                posun_num = run(img)
+                print(f'破损判断：{posun_num}')
                 if i <= 2:
                     diameter_axis_list.append(diameter)
-                    max_defect_num = max(max_defect_num, number_defects)
+                    ps.append(posun_num)
+                    # max_defect_num = max(max_defect_num, number_defects)
                     max_total_defect_area = max(max_total_defect_area, total_pixels)
                 if i == 1:
                     rp_result = rp
                     gp = round(green_percentage, 2)
+                max_defect_num = sum(ps)
 
             elif cmd == 'PF':
                 # 百香果
@@ -639,20 +654,202 @@ class Data_processing:
 
         diameter = round(sum(diameter_axis_list) / 3, 2)
 
+
         if cmd == 'TO':
             brix = 0
             weight = 0
-            # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{gp};'
-            #       f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
+            if diameter < 2.5:
+                diameter = 0
+                gp = 0
+                max_defect_num = 0
+                max_total_defect_area = 0
+                rp_result = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
+                                          dtype=np.uint8), cv2.COLOR_BGR2RGB)
+            print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{gp};'
+                  f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
             response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, green_percentage=gp, weight=weight,
                                       defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
             return response
         elif cmd == 'PF':
             brix = detector.predict(spec)
-            if diameter == 0:
+            if diameter < 2:
                 brix = 0
-            # print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{green_percentage};'
-            #       f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
+                diameter = 0
+                gp = 0
+                weight = 0
+                max_defect_num = 0
+                max_total_defect_area = 0
+                rp_result = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
+                                          dtype=np.uint8), cv2.COLOR_BGR2RGB)
+            print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{green_percentage};'
+                  f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
             response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=gp, diameter=diameter, weight=weight,
                                       defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
             return response
+
+
+class BasicBlock(nn.Module):
+    '''
+    BasicBlock for ResNet18 and ResNet34
+
+    '''
+    expansion = 1
+
+    def __init__(self, in_channel, out_channel, stride=1, downsample=None, **kwargs):
+        super(BasicBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=in_channel, out_channels=out_channel,
+                               kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channel)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(in_channels=out_channel, out_channels=out_channel,
+                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channel)
+        self.downsample = downsample
+
+    def forward(self, x):
+        identity = x
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        out += identity
+        out = self.relu(out)
+
+        return out
+
+class ResNet(nn.Module):
+    '''
+    ResNet18 and ResNet34
+    '''
+    def __init__(self,
+                 block,
+                 blocks_num,
+                 num_classes=1000,
+                 include_top=True,
+                 groups=1,
+                 width_per_group=64):
+        super(ResNet, self).__init__()
+        self.include_top = include_top
+        self.in_channel = 64
+
+        self.groups = groups
+        self.width_per_group = width_per_group
+
+        self.conv1 = nn.Conv2d(3, self.in_channel, kernel_size=7, stride=2,
+                               padding=3, bias=False)
+        self.bn1 = nn.BatchNorm2d(self.in_channel)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, blocks_num[0])
+        self.layer2 = self._make_layer(block, 128, blocks_num[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, blocks_num[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, blocks_num[3], stride=2)
+        if self.include_top:
+            self.avgpool = nn.AdaptiveAvgPool2d((1, 1))  # output size = (1, 1)
+            self.fc = nn.Linear(512 * block.expansion, num_classes)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+
+    def _make_layer(self, block, channel, block_num, stride=1):
+        downsample = None
+        if stride != 1 or self.in_channel != channel * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.in_channel, channel * block.expansion, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(channel * block.expansion))
+
+        layers = []
+        layers.append(block(self.in_channel,
+                            channel,
+                            downsample=downsample,
+                            stride=stride,
+                            groups=self.groups,
+                            width_per_group=self.width_per_group))
+        self.in_channel = channel * block.expansion
+
+        for _ in range(1, block_num):
+            layers.append(block(self.in_channel,
+                                channel,
+                                groups=self.groups,
+                                width_per_group=self.width_per_group))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+        if self.include_top:
+            x = self.avgpool(x)
+            x = torch.flatten(x, 1)
+            x = self.fc(x)
+
+        return x
+
+def resnet18(num_classes=1000, include_top=True):
+    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes, include_top=include_top)
+
+def resnet34(num_classes=1000, include_top=True):
+    return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_classes, include_top=include_top)
+
+#图像有无果判别模型
+class ImageClassifier:
+    '''
+    图像分类器，用于加载预训练的 ResNet 模型并进行图像分类。
+    '''
+    def __init__(self, model_path, class_indices_path, device=None):
+        if device is None:
+            self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = device
+
+        # 加载类别索引
+        assert os.path.exists(class_indices_path), f"File: '{class_indices_path}' does not exist."
+        with open(class_indices_path, "r") as json_file:
+            self.class_indict = json.load(json_file)
+
+        # 创建模型并加载权重
+        self.model = resnet34(num_classes=len(self.class_indict)).to(self.device)
+        assert os. path.exists(model_path), f"File: '{model_path}' does not exist."
+        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        self.model.eval()
+
+        # 设置图像转换
+        self.transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+
+    def predict(self, image_np):
+        '''
+        对图像进行分类预测。
+        :param image_np:
+        :return:
+        '''
+        # 将numpy数组转换为图像
+        image = Image.fromarray(image_np.astype('uint8'), 'RGB')
+        image = self.transform(image).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            output = self.model(image).cpu()
+            predict = torch.softmax(output, dim=1)
+            predict_cla = torch.argmax(predict, dim=1).numpy()
+
+        # return self.class_indict[str(predict_cla[0])]
+        return predict_cla[0]
