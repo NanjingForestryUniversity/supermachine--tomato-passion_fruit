@@ -17,9 +17,11 @@ class Config:
     #糖度模型
     brix_model_path = ROOT_DIR / 'models' / 'passion_fruit.joblib'
     #图像分类模型
-    imgclassifier_model_path = ROOT_DIR / 'models' / 'resnet18pf.pth'
+    imgclassifier_model_path = ROOT_DIR / 'models' / 'resnet18pf20240705.pth'
     imgclassifier_class_indices_path = ROOT_DIR / 'models' / 'class_indices.json'
 
+    #番茄破损模型
+    tomato_model_path = ROOT_DIR / 'weights' / 'best.pt'
 
     #classifer.py参数
     #tomato

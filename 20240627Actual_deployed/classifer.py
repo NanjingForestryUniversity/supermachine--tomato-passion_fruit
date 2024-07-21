@@ -5,6 +5,8 @@
 # @Software: PyCharm
 
 import os
+import time
+
 import cv2
 import pipe_utils
 import joblib
@@ -14,7 +16,7 @@ import numpy as np
 from pipe_utils import Pipe
 from config import Config as setting
 from sklearn.ensemble import RandomForestRegressor
-from detector import run
+from detector import Detector_to
 
 import torch
 import torch.nn as nn
@@ -389,6 +391,174 @@ class Spec_predict(object):
         data_y = self.model.predict(data_x)
         return data_y[0]
 
+
+class BasicBlock(nn.Module):
+    '''
+    BasicBlock for ResNet18 and ResNet34
+
+    '''
+    expansion = 1
+
+    def __init__(self, in_channel, out_channel, stride=1, downsample=None, **kwargs):
+        super(BasicBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=in_channel, out_channels=out_channel,
+                               kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channel)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(in_channels=out_channel, out_channels=out_channel,
+                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channel)
+        self.downsample = downsample
+
+    def forward(self, x):
+        identity = x
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        out += identity
+        out = self.relu(out)
+
+        return out
+
+class ResNet(nn.Module):
+    '''
+    ResNet18 and ResNet34
+    '''
+    def __init__(self,
+                 block,
+                 blocks_num,
+                 num_classes=1000,
+                 include_top=True,
+                 groups=1,
+                 width_per_group=64):
+        super(ResNet, self).__init__()
+        self.include_top = include_top
+        self.in_channel = 64
+
+        self.groups = groups
+        self.width_per_group = width_per_group
+
+        self.conv1 = nn.Conv2d(3, self.in_channel, kernel_size=7, stride=2,
+                               padding=3, bias=False)
+        self.bn1 = nn.BatchNorm2d(self.in_channel)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, blocks_num[0])
+        self.layer2 = self._make_layer(block, 128, blocks_num[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, blocks_num[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, blocks_num[3], stride=2)
+        if self.include_top:
+            self.avgpool = nn.AdaptiveAvgPool2d((1, 1))  # output size = (1, 1)
+            self.fc = nn.Linear(512 * block.expansion, num_classes)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+
+    def _make_layer(self, block, channel, block_num, stride=1):
+        downsample = None
+        if stride != 1 or self.in_channel != channel * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.in_channel, channel * block.expansion, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(channel * block.expansion))
+
+        layers = []
+        layers.append(block(self.in_channel,
+                            channel,
+                            downsample=downsample,
+                            stride=stride,
+                            groups=self.groups,
+                            width_per_group=self.width_per_group))
+        self.in_channel = channel * block.expansion
+
+        for _ in range(1, block_num):
+            layers.append(block(self.in_channel,
+                                channel,
+                                groups=self.groups,
+                                width_per_group=self.width_per_group))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+        if self.include_top:
+            x = self.avgpool(x)
+            x = torch.flatten(x, 1)
+            x = self.fc(x)
+
+        return x
+
+def resnet18(num_classes=1000, include_top=True):
+    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes, include_top=include_top)
+
+def resnet34(num_classes=1000, include_top=True):
+    return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_classes, include_top=include_top)
+
+#百香果褶皱判别模型
+class ImageClassifier:
+    '''
+    图像分类器，用于加载预训练的 ResNet 模型并进行图像分类。
+    '''
+    def __init__(self, model_path, class_indices_path, device=None):
+        if device is None:
+            self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = device
+
+        # 加载类别索引
+        assert os.path.exists(class_indices_path), f"File: '{class_indices_path}' does not exist."
+        with open(class_indices_path, "r") as json_file:
+            self.class_indict = json.load(json_file)
+
+        # 创建模型并加载权重
+        self.model = resnet18(num_classes=len(self.class_indict)).to(self.device)
+        assert os. path.exists(model_path), f"File: '{model_path}' does not exist."
+        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        self.model.eval()
+
+        # 设置图像转换
+        self.transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+
+    def predict(self, image_np):
+        '''
+        对图像进行分类预测。
+        :param image_np:
+        :return:
+        '''
+        # 将numpy数组转换为图像
+        image = Image.fromarray(image_np.astype('uint8'), 'RGB')
+        image = self.transform(image).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            output = self.model(image).cpu()
+            predict = torch.softmax(output, dim=1)
+            predict_cla = torch.argmax(predict, dim=1).numpy()
+
+        # return self.class_indict[str(predict_cla[0])]
+        return predict_cla[0]
+
+
 #数据处理模型
 class Data_processing:
     def __init__(self, area_threshold=20000, density = 0.652228972, area_ratio=0.00021973702422145334):
@@ -534,7 +704,7 @@ class Data_processing:
         # 获取西红柿的尺寸信息
         long_axis, short_axis = self.analyze_ellipse(mask)
         # 获取缺陷信息
-        number_defects, total_pixels = self.analyze_defect(filled_img_nogreen)
+        _, total_pixels = self.analyze_defect(filled_img_nogreen)
         # print(filled_img.shape)
         # print(f'缺陷数量：{number_defects}; 缺陷总面积：{total_pixels}')
         # cv2.imwrite('filled_img.jpg',filled_img)
@@ -552,7 +722,7 @@ class Data_processing:
         #     total_pixels = 0
         #     rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
         #                               dtype=np.uint8), cv2.COLOR_BGR2RGB)
-        return diameter, green_percentage, number_defects, total_pixels, rp
+        return diameter, green_percentage, total_pixels, rp
 
     def analyze_passion_fruit(self, img):
         if img is None:
@@ -586,7 +756,7 @@ class Data_processing:
         if weight > 255:
             weight = random.randint(30, 65)
 
-        number_defects, total_pixels = self.analyze_defect(filled_img)
+        _, total_pixels = self.analyze_defect(filled_img)
         # img1 = img.copy()
         edge = pf.draw_contours_on_image(img, contour_mask)
         org_defect = pf.bitwise_and_rgb_with_binary(edge, max_mask)
@@ -594,7 +764,7 @@ class Data_processing:
         #直径单位为cm
         # diameter = (long_axis + short_axis) * setting.pixel_length_ratio / 2
         diameter = long_axis * setting.pixel_length_ratio
-        print(f'长径：{long_axis}像素；短径：{short_axis}像素；直径：{diameter}cm')
+        # print(f'长径：{long_axis}像素；短径：{short_axis}像素；直径：{diameter}cm')
         # if diameter < 2.5:
         #     diameter = 0
         #     green_percentage = 0
@@ -603,9 +773,10 @@ class Data_processing:
         #     total_pixels = 0
         #     rp = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
         #                               dtype=np.uint8), cv2.COLOR_BGR2RGB)
-        return diameter, green_percentage, weight, number_defects, total_pixels, rp
+        return diameter, green_percentage, weight, total_pixels, rp
 
-    def process_data(seif, cmd: str, images: list, spec: any, pipe: Pipe, detector: Spec_predict) -> bool:
+    def process_data(seif, cmd: str, images: list, spec: any, pipe: Pipe,
+                     detector: Spec_predict, to: Detector_to, impf: ImageClassifier) -> bool:
         """
         处理指令
 
@@ -624,8 +795,11 @@ class Data_processing:
         for i, img in enumerate(images):
             if cmd == 'TO':
                 # 番茄
-                diameter, green_percentage, number_defects, total_pixels, rp = seif.analyze_tomato(img)
-                posun_num = run(img)
+                diameter, green_percentage, total_pixels, rp = seif.analyze_tomato(img)
+                ss = time.time()
+                posun_num = to.run(img)
+                es = time.time()
+                print(f'破损判断时间：{es-ss}')
                 print(f'破损判断：{posun_num}')
                 if i <= 2:
                     diameter_axis_list.append(diameter)
@@ -635,19 +809,20 @@ class Data_processing:
                 if i == 1:
                     rp_result = rp
                     gp = round(green_percentage, 2)
-                max_defect_num = sum(ps)
+                ps_sum = sum(ps)
 
             elif cmd == 'PF':
                 # 百香果
-                diameter, green_percentage, weight, number_defects, total_pixels, rp = seif.analyze_passion_fruit(img)
+                diameter, green_percentage, weight, total_pixels, rp = seif.analyze_passion_fruit(img)
                 if i <= 2:
                     diameter_axis_list.append(diameter)
-                    max_defect_num = max(max_defect_num, number_defects)
+                    # max_defect_num = max(max_defect_num, number_defects)
                     max_total_defect_area = max(max_total_defect_area, total_pixels)
                 if i == 1:
                     rp_result = rp
                     weight = weight
                     gp = round(green_percentage, 2)
+                    zz_sum = int(impf.predict(img))
 
             else:
                 logging.error(f'错误指令，指令为{cmd}')
@@ -662,14 +837,14 @@ class Data_processing:
             if diameter < 2.5:
                 diameter = 0
                 gp = 0
-                max_defect_num = 0
+                ps_sum = 0
                 max_total_defect_area = 0
                 rp_result = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
                                           dtype=np.uint8), cv2.COLOR_BGR2RGB)
             print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{gp};'
-                  f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
+                  f' 破损判别结果为：{ps_sum}; 预测的总缺陷面积为：{max_total_defect_area};')
             response = pipe.send_data(cmd=cmd, brix=brix, diameter=diameter, green_percentage=gp, weight=weight,
-                                      defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
+                                      defect_num=ps_sum, total_defect_area=max_total_defect_area, rp=rp_result)
             return response
         elif cmd == 'PF':
             brix = detector.predict(spec)
@@ -678,179 +853,14 @@ class Data_processing:
                 diameter = 0
                 gp = 0
                 weight = 0
-                max_defect_num = 0
+                zz_sum = 0
                 max_total_defect_area = 0
                 rp_result = cv2.cvtColor(np.ones((setting.n_rgb_rows, setting.n_rgb_cols, setting.n_rgb_bands),
                                           dtype=np.uint8), cv2.COLOR_BGR2RGB)
             print(f'预测的brix值为：{brix}; 预测的直径为：{diameter}; 预测的重量为：{weight}; 预测的绿色比例为：{green_percentage};'
-                  f' 预测的缺陷数量为：{max_defect_num}; 预测的总缺陷面积为：{max_total_defect_area};')
+                  f' 褶皱判别结果为：{zz_sum}; 预测的总缺陷面积为：{max_total_defect_area};')
             response = pipe.send_data(cmd=cmd, brix=brix, green_percentage=gp, diameter=diameter, weight=weight,
-                                      defect_num=max_defect_num, total_defect_area=max_total_defect_area, rp=rp_result)
+                                      defect_num=zz_sum, total_defect_area=max_total_defect_area, rp=rp_result)
             return response
 
 
-class BasicBlock(nn.Module):
-    '''
-    BasicBlock for ResNet18 and ResNet34
-
-    '''
-    expansion = 1
-
-    def __init__(self, in_channel, out_channel, stride=1, downsample=None, **kwargs):
-        super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=in_channel, out_channels=out_channel,
-                               kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(out_channel)
-        self.relu = nn.ReLU()
-        self.conv2 = nn.Conv2d(in_channels=out_channel, out_channels=out_channel,
-                               kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(out_channel)
-        self.downsample = downsample
-
-    def forward(self, x):
-        identity = x
-        if self.downsample is not None:
-            identity = self.downsample(x)
-
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
-        out = self.conv2(out)
-        out = self.bn2(out)
-
-        out += identity
-        out = self.relu(out)
-
-        return out
-
-class ResNet(nn.Module):
-    '''
-    ResNet18 and ResNet34
-    '''
-    def __init__(self,
-                 block,
-                 blocks_num,
-                 num_classes=1000,
-                 include_top=True,
-                 groups=1,
-                 width_per_group=64):
-        super(ResNet, self).__init__()
-        self.include_top = include_top
-        self.in_channel = 64
-
-        self.groups = groups
-        self.width_per_group = width_per_group
-
-        self.conv1 = nn.Conv2d(3, self.in_channel, kernel_size=7, stride=2,
-                               padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(self.in_channel)
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, blocks_num[0])
-        self.layer2 = self._make_layer(block, 128, blocks_num[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, blocks_num[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, blocks_num[3], stride=2)
-        if self.include_top:
-            self.avgpool = nn.AdaptiveAvgPool2d((1, 1))  # output size = (1, 1)
-            self.fc = nn.Linear(512 * block.expansion, num_classes)
-
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-
-    def _make_layer(self, block, channel, block_num, stride=1):
-        downsample = None
-        if stride != 1 or self.in_channel != channel * block.expansion:
-            downsample = nn.Sequential(
-                nn.Conv2d(self.in_channel, channel * block.expansion, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(channel * block.expansion))
-
-        layers = []
-        layers.append(block(self.in_channel,
-                            channel,
-                            downsample=downsample,
-                            stride=stride,
-                            groups=self.groups,
-                            width_per_group=self.width_per_group))
-        self.in_channel = channel * block.expansion
-
-        for _ in range(1, block_num):
-            layers.append(block(self.in_channel,
-                                channel,
-                                groups=self.groups,
-                                width_per_group=self.width_per_group))
-
-        return nn.Sequential(*layers)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-
-        if self.include_top:
-            x = self.avgpool(x)
-            x = torch.flatten(x, 1)
-            x = self.fc(x)
-
-        return x
-
-def resnet18(num_classes=1000, include_top=True):
-    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes, include_top=include_top)
-
-def resnet34(num_classes=1000, include_top=True):
-    return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_classes, include_top=include_top)
-
-#图像有无果判别模型
-class ImageClassifier:
-    '''
-    图像分类器，用于加载预训练的 ResNet 模型并进行图像分类。
-    '''
-    def __init__(self, model_path, class_indices_path, device=None):
-        if device is None:
-            self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        else:
-            self.device = device
-
-        # 加载类别索引
-        assert os.path.exists(class_indices_path), f"File: '{class_indices_path}' does not exist."
-        with open(class_indices_path, "r") as json_file:
-            self.class_indict = json.load(json_file)
-
-        # 创建模型并加载权重
-        self.model = resnet34(num_classes=len(self.class_indict)).to(self.device)
-        assert os. path.exists(model_path), f"File: '{model_path}' does not exist."
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
-        self.model.eval()
-
-        # 设置图像转换
-        self.transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-
-    def predict(self, image_np):
-        '''
-        对图像进行分类预测。
-        :param image_np:
-        :return:
-        '''
-        # 将numpy数组转换为图像
-        image = Image.fromarray(image_np.astype('uint8'), 'RGB')
-        image = self.transform(image).unsqueeze(0).to(self.device)
-
-        with torch.no_grad():
-            output = self.model(image).cpu()
-            predict = torch.softmax(output, dim=1)
-            predict_cla = torch.argmax(predict, dim=1).numpy()
-
-        # return self.class_indict[str(predict_cla[0])]
-        return predict_cla[0]

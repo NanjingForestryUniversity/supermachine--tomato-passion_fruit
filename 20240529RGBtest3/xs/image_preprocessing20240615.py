@@ -211,7 +211,8 @@ def extract_max_connected_area(image_path, lower_hsv, upper_hsv):
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--dir_path', type=str, default=r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\qt_test\TO\TOzhengchangyoudeng',
+    parser.add_argument('--dir_path', type=str,
+                        default=r'D:\project\supermachine--tomato-passion_fruit\20240529RGBtest3\data\20270708\T2\middle',
                         help='the directory path of images')
     parser.add_argument('--threshold_s_l', type=int, default=180,
                         help='the threshold for s_l')
@@ -247,8 +248,8 @@ def main():
 
 
             fore_g_r_t = threshold_segmentation(extract_g_r(fore), 20)
-            filled_img1 = cv2.bitwise_or(filled_img, fore_g_r_t)
-            cv2.imshow('filled_img1', filled_img1)
+            filled_img_nogreen = cv2.bitwise_or(filled_img, fore_g_r_t)
+            cv2.imshow('filled_img_nogreen', filled_img_nogreen)
             #统计白色像素点个数
             print(np.sum(fore_g_r_t == 255))
             print(np.sum(mask == 255))

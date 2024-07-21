@@ -569,6 +569,7 @@ class Data_processing:
         org_defect = tomato.bitwise_and_rgb_with_binary(edge, new_bin_img)
         fore = tomato.bitwise_and_rgb_with_binary(img, mask)
         fore_g_r_t = tomato.threshold_segmentation(tomato.extract_g_r(fore), threshold=setting.threshold_fore_g_r_t)
+        filled_img_nogreen = cv2.bitwise_or(filled_img, fore_g_r_t)
         res = cv2.bitwise_or(new_bin_img, fore_g_r_t)
         nogreen = tomato.bitwise_and_rgb_with_binary(edge, res)
         # 统计白色像素点个数
@@ -583,7 +584,7 @@ class Data_processing:
         # 获取西红柿的尺寸信息
         long_axis, short_axis = self.analyze_ellipse(mask)
         # 获取缺陷信息
-        number_defects, total_pixels = self.analyze_defect(filled_img)
+        number_defects, total_pixels = self.analyze_defect(filled_img_nogreen)
         # print(filled_img.shape)
         # print(f'缺陷数量：{number_defects}; 缺陷总面积：{total_pixels}')
         # cv2.imwrite('filled_img.jpg',filled_img)
